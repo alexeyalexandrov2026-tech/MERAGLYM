@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import type { Job } from "@prisma/client";
+import type { JobModel as Job } from "@/generated/prisma/models";
 import { useI18n } from "@/lib/i18nContext";
 
 export default function JobsPanel() {

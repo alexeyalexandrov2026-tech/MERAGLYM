@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import type { Node } from "@prisma/client";
+import type { NodeModel as Node } from "@/generated/prisma/models";
 import { useI18n } from "@/lib/i18nContext";
 
 export default function SearchPanel() {
