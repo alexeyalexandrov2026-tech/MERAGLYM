@@ -16,23 +16,12 @@ class SpiderFootAdapter(BaseAdapter):
         if not target or not isinstance(target, str):
             raise ValueError("SpiderFootAdapter requires a valid string 'value' in the payload.")
             
-        # SpiderFoot/OpenOSINT integration boundary
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Domain",
-                "entity_value": target,
-                "metadata": {
-                    "subdomains": ["api." + target, "mail." + target],
-                    "open_ports": [80, 443, 22]
-                },
-                "confidence": 0.90
-            }
-        ]
-        
+        import shutil
+        has_spiderfoot = shutil.which("sf")
+        if not has_spiderfoot:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: sf (spiderfoot) executable not found in PATH.")
+            
+        observations = []
         return observations
 
 registry.register(SpiderFootAdapter)

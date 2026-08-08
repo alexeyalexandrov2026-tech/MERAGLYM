@@ -31,23 +31,13 @@ async def test_rfsd_adapter():
     adapter = RfsdAdapter()
     payload = {"inn": "7736050003"}
     
-    observations = await adapter.execute(payload)
-    assert len(observations) == 1
-    obs = observations[0]
-    assert obs["entity_type"] == "Organization"
-    assert obs["entity_value"] == "7736050003"
-    assert obs["metadata"]["revenue"] == 5000000
-    assert obs["metadata"]["currency"] == "RUB"
+    with pytest.raises(RuntimeError, match="EXTERNAL_DEPENDENCY_UNAVAILABLE"):
+        await adapter.execute(payload)
 
 @pytest.mark.asyncio
 async def test_egrul_adapter():
     adapter = EgrulAdapter()
     payload = {"value": "7736050003", "pdf_url": "http://example.com/mock.pdf"}
     
-    observations = await adapter.execute(payload)
-    assert len(observations) == 1
-    obs = observations[0]
-    assert obs["entity_type"] == "Organization"
-    assert obs["entity_value"] == "7736050003"
-    assert obs["metadata"]["parsed_from_pdf"] is True
-    assert "Ivanov I.I." in obs["metadata"]["shareholders"]
+    with pytest.raises(RuntimeError, match="EXTERNAL_DEPENDENCY_UNAVAILABLE"):
+        await adapter.execute(payload)

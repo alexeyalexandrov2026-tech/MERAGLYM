@@ -22,40 +22,16 @@ class SocialMediaAdapter(BaseAdapter):
             
         observations = []
         
-        # Integration boundary: attempt to run Maigret/Social Analyzer if available in PATH
-        # Since these are heavy dependencies requiring Playwright/requests/etc., we check 
-        # for availability and gracefully fall back to external dependency blocker status.
+        import shutil
+        has_maigret = shutil.which("maigret")
+        has_social_analyzer = shutil.which("social-analyzer")
         
-        has_maigret = False
-        try:
-            # We would normally run: subprocess.run(["maigret", target_username, "--json", "report.json"])
-            # Or use the python library directly. We use a controlled integration boundary.
-            pass
-        except Exception:
-            pass
-
-        if not has_maigret:
-            # External Dependency Blocker: Create deterministic fixture to prove integration pipeline
-            print("[WARN] Maigret/Social Analyzer executables not found. Using deterministic fixture for pipeline validation.")
-            await asyncio.sleep(0.1)
+        if not has_maigret and not has_social_analyzer:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: Maigret or Social Analyzer executables not found in PATH.")
             
-            # Fixture modeling what Maigret/SocialAnalyzer return
-            observations.append({
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Person",
-                "entity_value": target_username,
-                "metadata": {
-                    "registered_accounts": ["Twitter", "Instagram", "GitHub"],
-                    "confidence_score": 85,
-                    "profile_urls": [
-                        f"https://github.com/{target_username}",
-                        f"https://twitter.com/{target_username}"
-                    ]
-                },
-                "confidence": 0.85
-            })
-            
+        # If executables are found, we execute them here via subprocess.
+        # For now, since dependencies are missing, the exception will be caught by the worker.
+        observations = []
         return observations
 
 registry.register(SocialMediaAdapter)

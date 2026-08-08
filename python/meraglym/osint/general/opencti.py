@@ -16,23 +16,12 @@ class OpenCTIAdapter(BaseAdapter):
         if not target_indicator or not isinstance(target_indicator, str):
             raise ValueError("OpenCTIAdapter requires a valid string 'value' (indicator).")
             
-        # OpenCTI Integration boundary
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Indicator",
-                "entity_value": target_indicator,
-                "metadata": {
-                    "malicious": True,
-                    "threat_actor_attribution": "APT29"
-                },
-                "confidence": 0.95
-            }
-        ]
-        
+        import os
+        has_opencti_token = os.environ.get("OPENCTI_TOKEN")
+        if not has_opencti_token:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: OPENCTI_TOKEN not configured in environment.")
+            
+        observations = []
         return observations
 
 registry.register(OpenCTIAdapter)

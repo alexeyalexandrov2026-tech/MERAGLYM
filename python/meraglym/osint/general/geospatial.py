@@ -17,28 +17,12 @@ class GeospatialAdapter(BaseAdapter):
         if not target_bssid or not isinstance(target_bssid, str):
             raise ValueError("GeospatialAdapter requires a valid 'value' (BSSID/Location) in the payload.")
             
-        # Integration boundary for GeoWiFi/TimeMap
-        # These tools require Wigle API keys or heavy geospatial DBs
+        import shutil
+        has_geowifi = shutil.which("geowifi")
+        if not has_geowifi:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: GeoWiFi executable or Wigle API key not configured in PATH.")
         
-        # Simulating external subprocess execution failure / missing credentials
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Location",
-                "entity_value": target_bssid,
-                "metadata": {
-                    "latitude": 50.4501,
-                    "longitude": 30.5234,
-                    "accuracy_meters": 50,
-                    "temporal_event_mapped": True
-                },
-                "confidence": 0.75
-            }
-        ]
-        
+        observations = []
         return observations
 
 registry.register(GeospatialAdapter)

@@ -16,24 +16,12 @@ class DarkWebAdapter(BaseAdapter):
         if not onion_url or not isinstance(onion_url, str) or not onion_url.endswith(".onion"):
             raise ValueError("DarkWebAdapter requires a valid '.onion' URL.")
             
-        # Integration boundary for TorBot (requires Tor daemon proxy)
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Domain",
-                "entity_value": onion_url,
-                "metadata": {
-                    "reachable": True,
-                    "page_title": "Hidden Marketplace",
-                    "linked_emails": ["admin@" + onion_url]
-                },
-                "confidence": 0.85
-            }
-        ]
-        
+        import shutil
+        has_torbot = shutil.which("torbot")
+        if not has_torbot:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: torbot executable or tor daemon not found in PATH.")
+            
+        observations = []
         return observations
 
 registry.register(DarkWebAdapter)

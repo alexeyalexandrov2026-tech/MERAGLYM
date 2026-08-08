@@ -20,9 +20,7 @@ class StixAdapter(BaseAdapter):
 
         observations = []
         
-        # Simulate STIX parsing and Entity mapping
-        await asyncio.sleep(0.1)
-
+        # STIX parsing and Entity mapping
         for obj in stix_objects:
             if not isinstance(obj, dict):
                 continue

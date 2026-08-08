@@ -16,25 +16,13 @@ class RfsdAdapter(BaseAdapter):
         if not target_inn:
             raise ValueError("RFSD adapter requires a target 'inn' (Tax ID).")
 
-        # Simulate incremental dataset ingestion
-        await asyncio.sleep(0.5)
+        import os
+        has_rfsd_db = os.environ.get("RFSD_DATABASE_PATH")
+        if not has_rfsd_db:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: RFSD_DATABASE_PATH not configured in environment.")
 
-        # Mapping financials into observations
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Organization",
-                "entity_value": target_inn,
-                "metadata": {
-                    "dataset_version": "2024",
-                    "financial_year": 2023,
-                    "revenue": 5000000,
-                    "currency": "RUB"
-                },
-                "confidence": 0.99
-            }
-        ]
+        # In production this would query the local RFSD database
+        observations = []
 
         return observations
 

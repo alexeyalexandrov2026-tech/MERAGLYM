@@ -16,23 +16,12 @@ class CameraAdapter(BaseAdapter):
         if not ip_or_image or not isinstance(ip_or_image, str):
             raise ValueError("CameraAdapter requires a valid string 'value'.")
             
-        # Integration boundary for CCTVScan / OpenALPR
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Camera",
-                "entity_value": ip_or_image,
-                "metadata": {
-                    "vulnerabilities": ["Default Credentials"],
-                    "detected_plates": ["ABC-1234"]
-                },
-                "confidence": 0.80
-            }
-        ]
-        
+        import shutil
+        has_cctvscan = shutil.which("cctvscan")
+        if not has_cctvscan:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: cctvscan executable not found in PATH.")
+            
+        observations = []
         return observations
 
 registry.register(CameraAdapter)

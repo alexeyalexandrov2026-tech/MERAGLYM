@@ -27,29 +27,14 @@ class EmailAdapter(BaseAdapter):
         if not email_regex.match(target_email):
             raise ValueError(f"Invalid email format provided to adapter: {target_email}")
 
-        # In production, this would securely interact with APIs or heavily sandboxed modules 
-        # (e.g. holehe or GHunt core logic) to check for social media registrations.
-        try:
-            await asyncio.sleep(0.1) # Simulate GHunt / API latency safely
-        except asyncio.CancelledError:
-            raise
-
-        # Return standardized observations based on the OpenOSINT capability model
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Email",
-                "entity_value": target_email,
-                "metadata": {
-                    "registered_platforms": ["GitHub", "Spotify"],
-                    "data_breaches": 2,
-                    "google_account_found": True,
-                    "google_maps_reviews": 5
-                },
-                "confidence": 0.90
-            }
-        ]
+        import shutil
+        has_ghunt = shutil.which("ghunt")
+        has_holehe = shutil.which("holehe")
+        
+        if not has_ghunt and not has_holehe:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: ghunt or holehe executable not found in PATH.")
+            
+        observations = []
         
         return observations
 

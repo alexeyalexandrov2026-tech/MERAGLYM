@@ -32,31 +32,14 @@ class EgrulAdapter(BaseAdapter):
         if not target_value and not pdf_url:
             raise ValueError("EGRUL adapter requires a 'value' (INN/OGRN) or 'pdf_url'.")
 
-        await self._handle_rate_limit()
+        import os
+        has_egrul_api_key = os.environ.get("EGRUL_API_KEY")
+        if not has_egrul_api_key:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: EGRUL_API_KEY not configured in environment.")
 
-        async with httpx.AsyncClient(timeout=self.timeout, limits=self.limits) as client:
-            
-            metadata = {
-                "name": f"OOO MOCK ENTERPRISE {target_value}",
-                "status": "Active",
-                "registration_date": "2015-05-12"
-            }
-            
-            if pdf_url:
-                # Abstracting egrul-nalog-parser capabilities
-                metadata["parsed_from_pdf"] = True
-                metadata["shareholders"] = ["Ivanov I.I."]
-
-            observation = {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "Organization",
-                "entity_value": target_value or "UNKNOWN_FROM_PDF",
-                "metadata": metadata,
-                "confidence": 0.95
-            }
-            
-            return [observation]
+        # In production this would query the API using the client.
+        observations = []
+        return observations
 
 # Register the adapter automatically upon module load
 registry.register(EgrulAdapter)

@@ -16,22 +16,12 @@ class CryptoAdapter(BaseAdapter):
         if not wallet_address or not isinstance(wallet_address, str):
             raise ValueError("CryptoAdapter requires a valid string 'value' (wallet address).")
             
-        await asyncio.sleep(0.1)
-        
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "CryptoWallet",
-                "entity_value": wallet_address,
-                "metadata": {
-                    "balance": "0.5 BTC",
-                    "known_exchanges": ["Binance"]
-                },
-                "confidence": 0.90
-            }
-        ]
-        
+        import os
+        has_crypto_env = os.environ.get("BLOCKCHAIN_API_KEY")
+        if not has_crypto_env:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: BLOCKCHAIN_API_KEY not configured for CryptoAdapter.")
+            
+        observations = []
         return observations
 
 registry.register(CryptoAdapter)

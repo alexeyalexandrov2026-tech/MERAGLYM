@@ -17,24 +17,13 @@ class MetadataAdapter(BaseAdapter):
         if not file_path or not isinstance(file_path, str):
             raise ValueError("MetadataAdapter requires a valid 'value' (file path or hash).")
             
-        # Integration boundary for exiftool / metadata-extractor
-        await asyncio.sleep(0.1)
+        import shutil
+        has_exiftool = shutil.which("exiftool")
+        if not has_exiftool:
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: exiftool executable not found in PATH.")
         
-        observations = [
-            {
-                "source_identifier": self.identifier,
-                "region": self.region,
-                "entity_type": "File",
-                "entity_value": file_path,
-                "metadata": {
-                    "author": "OSINT Target",
-                    "creation_date": "2023-01-01T12:00:00Z",
-                    "software": "Adobe Photoshop 2023"
-                },
-                "confidence": 0.95
-            }
-        ]
-        
+        # We would execute exiftool here.
+        observations = []
         return observations
 
 registry.register(MetadataAdapter)
