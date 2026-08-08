@@ -29,10 +29,9 @@ class EmailAdapter(BaseAdapter):
 
         import shutil
         has_ghunt = shutil.which("ghunt")
-        has_holehe = shutil.which("holehe")
         
-        if not has_ghunt and not has_holehe:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: ghunt or holehe executable not found in PATH.")
+        if not has_ghunt:
+            raise RuntimeError("REQUIRES_USER_CREDENTIAL: ghunt executable not found or not authenticated.")
             
         observations = []
         
@@ -47,8 +46,8 @@ class EmailAdapter(BaseAdapter):
                 cmd = ["ghunt", "email", target_email, "--json", f"ghunt_{target_email}.json"]
                 result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding="utf-8")
                 
-                if "GHuntInvalidSession" in result.stderr or "Please generate a new session" in result.stderr:
-                    raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: GHunt requires valid session. Run 'ghunt login'.")
+                if "Login failed" in result.stderr or "auth" in result.stderr.lower():
+                    raise RuntimeError("REQUIRES_USER_CREDENTIAL: GHunt requires valid session. Run 'ghunt login'.")
                     
                 json_file = f"ghunt_{target_email}.json"
                 if os.path.exists(json_file):

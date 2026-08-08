@@ -16,13 +16,31 @@ class RfsdAdapter(BaseAdapter):
         if not target_inn:
             raise ValueError("RFSD adapter requires a target 'inn' (Tax ID).")
 
-        import os
-        has_rfsd_db = os.environ.get("RFSD_DATABASE_PATH")
-        if not has_rfsd_db:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: RFSD_DATABASE_PATH not configured in environment.")
-
-        # In production this would query the local RFSD database
+        import httpx
         observations = []
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"https://bo.nalog.ru/nbo/organizations/search?query={target_inn}",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("content", [])
+                    for item in content:
+                        observations.append({
+                            "entity_type": "FinancialStatement",
+                            "entity_value": target_inn,
+                            "metadata": {
+                                "source": "bo.nalog.ru",
+                                "name": item.get("shortName"),
+                                "bfo_status": item.get("bfoStatus")
+                            },
+                            "confidence": 0.99,
+                            "reliability": 0.99
+                        })
+        except Exception as e:
+            raise RuntimeError(f"RFSD fetch failed: {e}")
 
         return observations
 

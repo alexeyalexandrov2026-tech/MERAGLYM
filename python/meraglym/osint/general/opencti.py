@@ -17,9 +17,9 @@ class OpenCTIAdapter(BaseAdapter):
             raise ValueError("OpenCTIAdapter requires a valid string 'value' (indicator).")
             
         import os
-        has_opencti_token = os.environ.get("OPENCTI_TOKEN")
-        if not has_opencti_token:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: OPENCTI_TOKEN not configured in environment.")
+        has_token = os.environ.get("OPENCTI_TOKEN")
+        if not has_token:
+            raise RuntimeError("REQUIRES_USER_CREDENTIAL: OPENCTI_TOKEN not configured in environment.")
             
         observations = []
         return observations

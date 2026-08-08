@@ -1,5 +1,6 @@
 from .stix import StixAdapter
 from .email import EmailAdapter
+from .holehe import HoleheAdapter
 from .social import SocialMediaAdapter
 from .geospatial import GeospatialAdapter
 from .metadata import MetadataAdapter
@@ -12,6 +13,7 @@ from .opencti import OpenCTIAdapter
 __all__ = [
     "StixAdapter",
     "EmailAdapter",
+    "HoleheAdapter",
     "SocialMediaAdapter",
     "GeospatialAdapter",
     "MetadataAdapter",

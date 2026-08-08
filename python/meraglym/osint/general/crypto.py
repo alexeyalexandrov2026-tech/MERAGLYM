@@ -17,9 +17,9 @@ class CryptoAdapter(BaseAdapter):
             raise ValueError("CryptoAdapter requires a valid string 'value' (wallet address).")
             
         import os
-        has_crypto_env = os.environ.get("BLOCKCHAIN_API_KEY")
-        if not has_crypto_env:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: BLOCKCHAIN_API_KEY not configured for CryptoAdapter.")
+        has_api_key = os.environ.get("BLOCKCHAIN_API_KEY")
+        if not has_api_key:
+            raise RuntimeError("REQUIRES_USER_CREDENTIAL: BLOCKCHAIN_API_KEY not configured for CryptoAdapter.")
             
         observations = []
         return observations

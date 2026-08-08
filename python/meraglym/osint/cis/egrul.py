@@ -32,13 +32,27 @@ class EgrulAdapter(BaseAdapter):
         if not target_value and not pdf_url:
             raise ValueError("EGRUL adapter requires a 'value' (INN/OGRN) or 'pdf_url'.")
 
-        import os
-        has_egrul_api_key = os.environ.get("EGRUL_API_KEY")
-        if not has_egrul_api_key:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: EGRUL_API_KEY not configured in environment.")
-
-        # In production this would query the API using the client.
+        from atomno_mcp_fns_check.sources.egrul import EgrulClient
         observations = []
+        try:
+            async with EgrulClient() as client:
+                companies = await client.search_by_inn(target_value)
+                if companies:
+                    company = companies[0]
+                    observations.append({
+                        "entity_type": "Company",
+                        "entity_value": target_value,
+                        "metadata": {
+                            "source": "egrul.nalog.ru",
+                            "name": company.name_short or company.name_full,
+                            "ogrn": company.ogrn
+                        },
+                        "confidence": 0.99,
+                        "reliability": 0.95
+                    })
+        except Exception as e:
+            raise RuntimeError(f"EGRUL fetch failed: {e}")
+
         return observations
 
 # Register the adapter automatically upon module load
