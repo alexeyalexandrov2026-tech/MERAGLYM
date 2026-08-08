@@ -1,4 +1,5 @@
 import React from "react";
+import { useI18n } from "@/lib/i18nContext";
 
 interface NavigationProps {
   currentView: string;
@@ -6,11 +7,13 @@ interface NavigationProps {
 }
 
 export default function Navigation({ currentView, onViewChange }: NavigationProps) {
+  const { t } = useI18n();
+
   const navItems = [
-    { id: "overview", label: "OVERVIEW" },
-    { id: "osint", label: "OSINT HIERARCHY" },
-    { id: "search", label: "GLOBAL SEARCH" },
-    { id: "jobs", label: "SYSTEM JOBS" },
+    { id: "overview", label: t("nav.overview") },
+    { id: "osint", label: t("nav.osint") },
+    { id: "search", label: t("nav.search") },
+    { id: "jobs", label: t("nav.jobs") },
   ];
 
   return (

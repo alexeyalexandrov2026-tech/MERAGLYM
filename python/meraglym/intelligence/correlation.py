@@ -20,18 +20,49 @@ class CorrelationEngine:
         Rule: If two different Organizations resolve to or communicate with the same IP/Domain,
         they may have a relationship.
         """
-        # A full implementation would query the Relationship graph for 
-        # (Organization) -> [RESOLVES_TO] -> (IP) <- [RESOLVES_TO] <- (Organization)
-        # and create a [SHARED_INFRASTRUCTURE] relationship.
-        
-        with self.conn.cursor() as cur:
-            # Example query looking for shared targets
-            # We wrap in TRY/CATCH equivalent or handle gracefully.
-            pass
+        try:
+            with self.conn.cursor() as cur:
+                # Find distinct source entities targeting the same target entity (e.g. IP/Domain)
+                cur.execute('''
+                    WITH SharedTargets AS (
+                        SELECT r1."sourceEntityId" AS e1, r2."sourceEntityId" AS e2, r1."targetEntityId" AS target
+                        FROM "Relationship" r1
+                        JOIN "Relationship" r2 ON r1."targetEntityId" = r2."targetEntityId"
+                        WHERE r1."sourceEntityId" != r2."sourceEntityId" 
+                          AND r1.type IN ('RESOLVES_TO', 'COMMUNICATES_WITH')
+                          AND r2.type IN ('RESOLVES_TO', 'COMMUNICATES_WITH')
+                    )
+                    INSERT INTO "Relationship" ("sourceEntityId", "targetEntityId", "type", "confidence", "createdAt")
+                    SELECT e1, e2, 'SHARED_INFRASTRUCTURE', 0.6, NOW()
+                    FROM SharedTargets
+                    ON CONFLICT ("sourceEntityId", "targetEntityId", "type") DO NOTHING
+                ''')
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            print(f"Error correlating shared infrastructure: {e}")
             
     def _correlate_temporal_events(self):
         """
         Rule: If two distinct entities generate an Observation from the same Source 
         within 5 minutes of each other, tag them as temporally correlated.
         """
-        pass
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute('''
+                    WITH TemporalEvents AS (
+                        SELECT o1."entityId" AS e1, o2."entityId" AS e2
+                        FROM "Observation" o1
+                        JOIN "Observation" o2 ON o1."sourceId" = o2."sourceId"
+                        WHERE o1."entityId" != o2."entityId"
+                          AND ABS(EXTRACT(EPOCH FROM (o1.timestamp - o2.timestamp))) <= 300
+                    )
+                    INSERT INTO "Relationship" ("sourceEntityId", "targetEntityId", "type", "confidence", "createdAt")
+                    SELECT e1, e2, 'TEMPORAL_CORRELATION', 0.4, NOW()
+                    FROM TemporalEvents
+                    ON CONFLICT ("sourceEntityId", "targetEntityId", "type") DO NOTHING
+                ''')
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            print(f"Error correlating temporal events: {e}")

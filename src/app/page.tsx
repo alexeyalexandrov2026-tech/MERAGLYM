@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import Dashboard from "@/components/Dashboard";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const rootNodes = await prisma.node.findMany({
     where: {

@@ -1,16 +1,18 @@
 import React from "react";
 import type { Node } from "@prisma/client";
+import { useI18n } from "@/lib/i18nContext";
 
 interface NodeViewProps {
   node: Node | null;
 }
 
 export default function NodeView({ node }: NodeViewProps) {
+  const { t } = useI18n();
   if (!node) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", flexDirection: "column" }}>
         <div style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.2 }}>◇</div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "14px", letterSpacing: "1px" }}>AWAITING_TARGET_SELECTION</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "14px", letterSpacing: "1px" }}>{t("nodeView.awaitingSelection")}</div>
       </div>
     );
   }
@@ -43,23 +45,23 @@ export default function NodeView({ node }: NodeViewProps) {
             onMouseOver={(e) => (e.currentTarget.style.background = "rgba(0, 136, 255, 0.2)")}
             onMouseOut={(e) => (e.currentTarget.style.background = "rgba(0, 136, 255, 0.1)")}
           >
-            INITIATE_UPLINK ↗
+            {t("nodeView.initiateUplink")}
           </a>
         )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Field label="DESCRIPTION" value={node.description} />
-          <Field label="STATUS" value={node.status} />
-          <Field label="BEST FOR" value={node.bestFor} />
+          <Field label={t("nodeView.description")} value={node.description} />
+          <Field label={t("nodeView.status")} value={node.status} />
+          <Field label={t("nodeView.bestFor")} value={node.bestFor} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Field label="PRICING" value={node.pricing} />
-          <Field label="INPUT" value={node.input} />
-          <Field label="OUTPUT" value={node.output} />
-          <Field label="OPSEC" value={node.opsec} isWarning={node.opsec?.toLowerCase().includes("high") || node.opsec?.toLowerCase().includes("warning")} />
-          <Field label="OPSEC NOTE" value={node.opsecNote} />
+          <Field label={t("nodeView.pricing")} value={node.pricing} />
+          <Field label={t("nodeView.input")} value={node.input} />
+          <Field label={t("nodeView.output")} value={node.output} />
+          <Field label={t("nodeView.opsec")} value={node.opsec} isWarning={node.opsec?.toLowerCase().includes("high") || node.opsec?.toLowerCase().includes("warning")} />
+          <Field label={t("nodeView.opsecNote")} value={node.opsecNote} />
         </div>
       </div>
     </div>

@@ -1,0 +1,15 @@
+/Releases
+/.idea
+/Output
+/out
+/TestReports
+/gradle
+/gradlew
+/gradlew.bat
+.project
+.classpath
+.settings/
+build
+.DS_Store
+.gradle
+.flattened-pom.xml

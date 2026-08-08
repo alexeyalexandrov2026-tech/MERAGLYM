@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import type { Node } from "@prisma/client";
+import { useI18n } from "@/lib/i18nContext";
 
 export default function SearchPanel() {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Node[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,7 @@ export default function SearchPanel() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "40px" }}>
       <h2 style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)", marginBottom: "20px", fontSize: "16px" }}>
-        SYSTEM SEARCH // GLOBAL
+        {t("searchPanel.title")}
       </h2>
       
       <div style={{ marginBottom: "20px" }}>
@@ -49,7 +51,7 @@ export default function SearchPanel() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="QUERY OSINT DATABASE..."
+          placeholder={t("searchPanel.placeholder")}
           style={{
             width: "100%",
             maxWidth: "600px",
@@ -65,16 +67,16 @@ export default function SearchPanel() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid var(--border-primary)", paddingTop: "20px" }}>
-        {loading && <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>[SEARCHING...]</div>}
+        {loading && <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>{t("searchPanel.searching")}</div>}
         
         {!loading && searched && results.length === 0 && (
-          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>[NO RESULTS FOUND]</div>
+          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>{t("searchPanel.noResults")}</div>
         )}
 
         {!loading && results.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             <div style={{ fontSize: "11px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>
-              {results.length} MATCHES // RANKED BY RELEVANCE
+              {results.length} {t("searchPanel.matches")}
             </div>
             {results.map((node) => (
               <div

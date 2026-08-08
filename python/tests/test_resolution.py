@@ -37,8 +37,8 @@ class MockDBConnection:
 
 def test_resolution_insert_new():
     conn = MockDBConnection()
-    # Mock insert returning ID 1
-    conn.cursor_obj.returns = [None, (1,)]
+    # Mock exact match (None), alias match (None), then insert returning ID (1,)
+    conn.cursor_obj.returns = [None, None, (1,)]
     
     engine = EntityResolutionEngine(conn)
     new_id = engine.insert_or_resolve(
@@ -51,7 +51,7 @@ def test_resolution_insert_new():
     assert new_id == 1
     assert conn.committed is True
     queries = [q.strip().replace("\n", "").replace("  ", " ") for q in conn.cursor_obj.queries]
-    assert "INSERT INTO \"Entity\"" in queries[1]
+    assert "INSERT INTO \"Entity\"" in queries[2]
 
 def test_resolution_resolve_existing():
     conn = MockDBConnection()

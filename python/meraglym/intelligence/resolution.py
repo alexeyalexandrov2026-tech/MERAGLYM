@@ -44,10 +44,31 @@ class EntityResolutionEngine:
             
             # Step 2: Alias-based fuzzy match (if exact value didn't match but an alias does)
             if aliases:
-                # In PostgreSQL, we can use JSONB containment or simpler text search for basic aliases.
-                # For this implementation, we fall back to a simple LIKE or JSON search if needed,
-                # but currently we rely on canonical values primarily.
-                pass
+                # In PostgreSQL, we can use JSONB containment to see if any of the provided aliases 
+                # overlap with the existing aliases for this entity type.
+                # Assuming aliases is a JSONB array.
+                for alias in aliases:
+                    cur.execute('''
+                        SELECT id, aliases 
+                        FROM "Entity" 
+                        WHERE type = %s 
+                          AND aliases @> %s::jsonb
+                        LIMIT 1
+                    ''', (entity_type, json.dumps([alias])))
+                    
+                    alias_row = cur.fetchone()
+                    if alias_row:
+                        entity_id, existing_aliases = alias_row
+                        existing_aliases_list = existing_aliases if existing_aliases else []
+                        merged = list(set(existing_aliases_list + aliases))
+                        if len(merged) > len(existing_aliases_list):
+                            cur.execute('''
+                                UPDATE "Entity" 
+                                SET aliases = %s, "updatedAt" = NOW()
+                                WHERE id = %s
+                            ''', (json.dumps(merged), entity_id))
+                            self.conn.commit()
+                        return entity_id, True
                 
         return None, False
 

@@ -13,40 +13,57 @@ class StixAdapter(BaseAdapter):
 
     async def execute(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
         stix_objects = payload.get("objects", [])
+        if not isinstance(stix_objects, list):
+            raise ValueError("STIX adapter payload 'objects' must be a list.")
         if not stix_objects:
             raise ValueError("STIX adapter payload must contain 'objects' array.")
 
         observations = []
         
         # Simulate STIX parsing and Entity mapping
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
 
         for obj in stix_objects:
-            stix_type = obj.get("type")
-            if stix_type == "threat-actor":
-                observations.append({
-                    "source_identifier": self.identifier,
-                    "region": self.region,
-                    "entity_type": "ThreatActor",
-                    "entity_value": obj.get("name"),
-                    "metadata": {
-                        "stix_id": obj.get("id"),
-                        "description": obj.get("description", ""),
-                        "aliases": obj.get("aliases", [])
-                    },
-                    "confidence": 0.90
-                })
-            elif stix_type == "campaign":
-                observations.append({
-                    "source_identifier": self.identifier,
-                    "region": self.region,
-                    "entity_type": "Campaign",
-                    "entity_value": obj.get("name"),
-                    "metadata": {
-                        "stix_id": obj.get("id")
-                    },
-                    "confidence": 0.85
-                })
+            if not isinstance(obj, dict):
+                continue
+                
+            try:
+                stix_type = obj.get("type")
+                if not stix_type:
+                    continue
+                    
+                if stix_type == "threat-actor":
+                    name = obj.get("name")
+                    if not name:
+                        continue
+                        
+                    observations.append({
+                        "source_identifier": self.identifier,
+                        "region": self.region,
+                        "entity_type": "ThreatActor",
+                        "entity_value": name,
+                        "metadata": {
+                            "stix_id": obj.get("id"),
+                            "description": str(obj.get("description", "")),
+                            "aliases": obj.get("aliases", []) if isinstance(obj.get("aliases"), list) else []
+                        },
+                        "confidence": 0.90
+                    })
+                elif stix_type == "campaign":
+                    observations.append({
+                        "source_identifier": self.identifier,
+                        "region": self.region,
+                        "entity_type": "Campaign",
+                        "entity_value": obj.get("name"),
+                        "metadata": {
+                            "stix_id": obj.get("id")
+                        },
+                        "confidence": 0.85
+                    })
+            except Exception as e:
+                # Log or handle parsing exception gracefully
+                print(f"Error parsing STIX object: {e}")
+                continue
 
         return observations
 

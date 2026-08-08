@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import type { Node } from "@prisma/client";
+import { useI18n } from "@/lib/i18nContext";
 
 interface SidebarProps {
   initialNodes: Node[];
@@ -106,6 +107,8 @@ const TreeNode = ({
 };
 
 export default function Sidebar({ initialNodes, onSelectNode, selectedNodeId }: SidebarProps) {
+  const { t } = useI18n();
+
   return (
     <div
       className="gotham-panel"
@@ -131,10 +134,10 @@ export default function Sidebar({ initialNodes, onSelectNode, selectedNodeId }: 
         backdropFilter: "blur(12px)"
       }}>
         <h2 style={{ color: "var(--text-accent)", fontSize: "16px", marginBottom: "4px" }}>
-          SYS.INDEX
+          {t("sidebar.sysIndex")}
         </h2>
         <div style={{ fontSize: "11px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-          ROOT_CATEGORIES // {initialNodes.length} ENTRIES
+          {t("sidebar.rootCategories")} // {initialNodes.length} {t("sidebar.entries")}
         </div>
       </div>
       

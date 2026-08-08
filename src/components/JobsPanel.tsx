@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import type { Job } from "@prisma/client";
+import { useI18n } from "@/lib/i18nContext";
 
 export default function JobsPanel() {
+  const { t } = useI18n();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +43,7 @@ export default function JobsPanel() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "40px", overflowY: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h2 style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)", fontSize: "16px" }}>
-          SYSTEM WORKER JOBS // {jobs.length} RECENT
+          {t("jobsPanel.title")} {jobs.length} {t("jobsPanel.recent")}
         </h2>
         <button 
           onClick={() => { setLoading(true); fetchJobs(); }}
@@ -55,17 +57,17 @@ export default function JobsPanel() {
             cursor: "pointer"
           }}
         >
-          REFRESH
+          {t("jobsPanel.refresh")}
         </button>
       </div>
 
       <div style={{ flex: 1 }}>
         {loading && jobs.length === 0 && (
-          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>[LOADING JOB SCHEDULER...]</div>
+          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>{t("jobsPanel.loading")}</div>
         )}
 
         {!loading && jobs.length === 0 && (
-          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>[NO JOBS FOUND IN DATABASE]</div>
+          <div style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>{t("jobsPanel.noJobs")}</div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -88,7 +90,7 @@ export default function JobsPanel() {
                     {job.type}
                   </span>
                   <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                    ID: {job.id}
+                    {t("jobsPanel.id")} {job.id}
                   </span>
                 </div>
                 <div style={{ 
@@ -102,9 +104,9 @@ export default function JobsPanel() {
               </div>
 
               <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", display: "flex", gap: "24px" }}>
-                <div>CREATED: {new Date(job.createdAt).toLocaleString()}</div>
-                {job.startedAt && <div>STARTED: {new Date(job.startedAt).toLocaleString()}</div>}
-                {job.completedAt && <div>COMPLETED: {new Date(job.completedAt).toLocaleString()}</div>}
+                <div>{t("jobsPanel.created")} {new Date(job.createdAt).toLocaleString()}</div>
+                {job.startedAt && <div>{t("jobsPanel.started")} {new Date(job.startedAt).toLocaleString()}</div>}
+                {job.completedAt && <div>{t("jobsPanel.completed")} {new Date(job.completedAt).toLocaleString()}</div>}
               </div>
 
               {job.error && (
