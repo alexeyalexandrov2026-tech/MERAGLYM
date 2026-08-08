@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Node {
+  id             Int      @id @default(autoincrement())
+  parentId       Int?
+  parent         Node?    @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Node[]   @relation("NodeChildren")
+  name           String
+  type           String   // "folder" or "url"
+  url            String?
+  description    String?
+  status         String?
+  pricing        String?
+  bestFor        String?
+  input          String?
+  output         String?
+  opsec          String?
+  opsecNote      String?
+  localInstall   Boolean?
+  googleDork     Boolean?
+  registration   Boolean?
+  editUrl        Boolean?
+  api            Boolean?
+  invitationOnly Boolean?
+  deprecated     Boolean?
+  createdAt      DateTime @default(now())
+
+  @@index([parentId])
+}
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  type        String   // e.g. "ingest_arf"
+  status      String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, RETRY
+  payload     Json?
+  result      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+enum Region {
+  GLOBAL
+  NORTH_AMERICA
+  EUROPE
+  CIS
+  ASIA
+  LATIN_AMERICA
+  MIDDLE_EAST
+  AFRICA
+  OCEANIA
+}
+
+enum SourceHealth {
+  HEALTHY
+  DEGRADED
+  UNREACHABLE
+  RATE_LIMITED
+  AUTH_FAILED
+}
+
+model Source {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  region       Region        @default(GLOBAL)
+  description  String?
+  url          String?
+  healthStatus SourceHealth  @default(HEALTHY)
+  lastSuccess  DateTime?
+  errorRate    Float         @default(0.0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  adapters    SourceAdapter[]
+  observations Observation[]
+}
+
+model SourceAdapter {
+  id          Int      @id @default(autoincrement())
+  sourceId    Int
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  identifier  String   @unique // e.g., "egrul_api", "email_holehe"
+  version     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Entity {
+  id          Int      @id @default(autoincrement())
+  type        String   // "Person", "Organization", "Email", "IP", "Domain", etc.
+  value       String   // The actual identifier: "target@example.com"
+  metadata    Json?    // Any additional fields specific to this entity type
+  confidence  Float    @default(1.0)
+  reliability Float    @default(1.0)
+  aliases     Json?    // JSON array of alias strings for entity resolution
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sourceRelationships Relationship[] @relation("SourceEntity")
+  targetRelationships Relationship[] @relation("TargetEntity")
+  observations        Observation[]
+  events              Event[]
+
+  @@unique([type, value])
+  @@index([type])
+}
+
+model Relationship {
+  id            Int      @id @default(autoincrement())
+  sourceEntityId Int
+  targetEntityId Int
+  type          String   // e.g., "OWNS", "RESOLVES_TO", "COMMUNICATES_WITH"
+  confidence    Float    @default(1.0)
+  source        Entity   @relation("SourceEntity", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  target        Entity   @relation("TargetEntity", fields: [targetEntityId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  
+  @@unique([sourceEntityId, targetEntityId, type])
+  @@index([type])
+}
+
+model Observation {
+  id          Int      @id @default(autoincrement())
+  entityId    Int
+  entity      Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  sourceId    Int?
+  originSource Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  timestamp   DateTime @default(now()) // When this was observed
+  payload     Json     // The raw or normalized observation data
+  createdAt   DateTime @default(now())
+}
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  latitude    Float
+  longitude   Float
+  address     String?
+  city        String?
+  country     String?
+  createdAt   DateTime @default(now())
+  
+  events      Event[]
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  entityId    Int
+  entity      Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  locationId  Int?
+  location    Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  timestamp   DateTime // When the event occurred (historical)
+  type        String   // "Sightings", "Transactions", "Registrations"
+  description String?
+  createdAt   DateTime @default(now())
+  
+  @@index([timestamp])
+}
