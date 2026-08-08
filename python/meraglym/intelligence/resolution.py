@@ -16,6 +16,12 @@ class EntityResolutionEngine:
         If it finds a match, returns (entity_id, True).
         If no match is found, returns (None, False).
         """
+        # Ambiguous types that should NEVER merge solely on a non-unique 'value' (e.g. human names)
+        # without stronger correlation metadata (which is handled later in CorrelationEngine).
+        ambiguous_types = {"Person"}
+        if entity_type in ambiguous_types:
+            return None, False
+
         # Step 1: Exact deterministic match (type + value)
         with self.conn.cursor() as cur:
             cur.execute('''
@@ -44,9 +50,6 @@ class EntityResolutionEngine:
             
             # Step 2: Alias-based fuzzy match (if exact value didn't match but an alias does)
             if aliases:
-                # In PostgreSQL, we can use JSONB containment to see if any of the provided aliases 
-                # overlap with the existing aliases for this entity type.
-                # Assuming aliases is a JSONB array.
                 for alias in aliases:
                     cur.execute('''
                         SELECT id, aliases 
