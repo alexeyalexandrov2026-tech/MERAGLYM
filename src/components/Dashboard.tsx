@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import type { Node } from "@prisma/client";
+import type { NodeModel as Node } from "@/generated/prisma/models";
 import Sidebar from "./Sidebar";
 import NodeView from "./NodeView";
 import Navigation from "./Navigation";
