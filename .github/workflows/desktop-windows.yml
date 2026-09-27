@@ -1,23 +1,38 @@
 name: Desktop (Windows installer)
 
-# Builds the self-contained Windows .exe installer. The native SQLite module is
-# rebuilt for Electron on the Windows runner, so this must run on windows-latest.
+# Builds the self-contained Windows .exe installer and smoke-tests the packaged
+# app. The native SQLite module is rebuilt for Electron on the Windows runner,
+# so this must run on windows-latest.
 on:
   workflow_dispatch:
   push:
     tags:
       - "v*"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "electron/**"
+      - "electron-builder.yml"
+      - "scripts/**"
+      - "prisma/**"
+      - "src/**"
+      - "public/**"
+      - "next.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/desktop-windows.yml"
 
 jobs:
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -25,6 +40,89 @@ jobs:
 
       - name: Build Windows installer
         run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Verify packaged app contents
+        shell: pwsh
+        run: |
+          $root = "release\win-unpacked"
+          $required = @(
+            "$root\MERAGLYM.exe",
+            "$root\resources\app.db",
+            "$root\resources\app\dist-electron\main.js",
+            "$root\resources\app\.next\standalone\server.js",
+            "$root\resources\app\.next\standalone\public\arf.json"
+          )
+          foreach ($p in $required) {
+            if (-not (Test-Path $p)) { throw "Missing from package: $p" }
+            Write-Host "ok  $p"
+          }
+          Write-Host "Native SQLite modules in the server bundle:"
+          Get-ChildItem -Recurse "$root\resources\app\.next\standalone\node_modules" -Filter *.node |
+            Where-Object { $_.FullName -match "sqlite" } | ForEach-Object { Write-Host "  $($_.FullName)" }
+          Get-ChildItem release\*.exe | ForEach-Object { Write-Host ("installer: {0} ({1:N1} MB)" -f $_.Name, ($_.Length / 1MB)) }
+
+      - name: Smoke test packaged server under Electron's Node runtime
+        shell: pwsh
+        run: |
+          $root = (Resolve-Path "release\win-unpacked").Path
+          $standalone = "$root\resources\app\.next\standalone"
+          $db = Join-Path $env:RUNNER_TEMP "smoke.db"
+          Copy-Item "$root\resources\app.db" $db
+
+          # ELECTRON_RUN_AS_NODE runs the packaged MERAGLYM.exe as plain Node —
+          # the same runtime/ABI the app's utility process uses — so this proves
+          # the bundled native SQLite module loads under Electron on Windows.
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          $env:NODE_ENV = "production"
+          $env:MERAGLYM_DB_MODE = "local"
+          $env:MERAGLYM_SQLITE_PATH = $db
+          $env:PORT = "3999"
+          $env:HOSTNAME = "127.0.0.1"
+          $out = Join-Path $env:RUNNER_TEMP "server.out"
+          $err = Join-Path $env:RUNNER_TEMP "server.err"
+          $proc = Start-Process -FilePath "$root\MERAGLYM.exe" -ArgumentList "`"$standalone\server.js`"" `
+            -WorkingDirectory $standalone -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try { Invoke-WebRequest "http://127.0.0.1:3999/" -UseBasicParsing -TimeoutSec 5 | Out-Null; $ready = $true; break } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $ready) { throw "Server did not become ready" }
+
+            $homePage = Invoke-WebRequest "http://127.0.0.1:3999/" -UseBasicParsing
+            if ($homePage.StatusCode -ne 200) { throw "Home returned $($homePage.StatusCode)" }
+
+            $roots = Invoke-RestMethod "http://127.0.0.1:3999/api/nodes?parentId=null"
+            if (@($roots).Count -lt 1) { throw "No root nodes returned" }
+
+            $hits = Invoke-RestMethod "http://127.0.0.1:3999/api/search?q=email"
+            if (@($hits).Count -lt 1) { throw "Search returned no results" }
+
+            Write-Host "Home 200, $(@($roots).Count) root node(s), $(@($hits).Count) search results for 'email'."
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "--- server stdout ---"; Get-Content $out -ErrorAction SilentlyContinue | Select-Object -Last 20
+            Write-Host "--- server stderr ---"; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -Last 20
+          }
+
+      - name: Launch the desktop app
+        shell: pwsh
+        run: |
+          # Start the real GUI app. On startup it seeds its database, forks the
+          # server and opens the window; on any failure it quits. Still running
+          # after the wait means startup succeeded.
+          $exe = (Resolve-Path "release\win-unpacked\MERAGLYM.exe").Path
+          $proc = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 45
+          $proc.Refresh()
+          if ($proc.HasExited) { throw "MERAGLYM exited during startup (exit code $($proc.ExitCode))" }
+          $seeded = Get-ChildItem $env:APPDATA -Recurse -Filter meraglym.db -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $seeded) { throw "User database was not created under %APPDATA%" }
+          Write-Host "App running; user database at $($seeded.FullName) ($([math]::Round($seeded.Length / 1KB)) KB)"
+          Get-Process -Name MERAGLYM -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

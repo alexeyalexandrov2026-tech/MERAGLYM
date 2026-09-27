@@ -1,11 +1,17 @@
-FROM node:18-alpine AS base
+# Web image (PostgreSQL). Next.js 16 requires Node >= 20.9 and Prisma 7
+# requires ^20.19 || ^22.12, so use Node 22.
+FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
+# The Electron runtime and the SQLite driver are only needed for the Windows
+# desktop build. Skip Electron's ~100 MB binary download here; better-sqlite3 is
+# an optionalDependency, so npm tolerates its native build being unavailable.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -15,7 +21,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client and build
+# Generate the Prisma client and build the web (Postgres) target.
 RUN npx prisma generate
 RUN npm run build
 
@@ -23,9 +29,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+# ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -40,13 +46,14 @@ RUN chown nextjs:nodejs .next
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Copy prisma files if we need them in runtime, but standard standalone handles most.
-# For production DB migrations, a separate step is recommended, but we can copy it just in case.
 
 USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
+# The standalone server binds to $HOSTNAME; Docker sets it to the container id,
+# so bind to all interfaces explicitly.
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]

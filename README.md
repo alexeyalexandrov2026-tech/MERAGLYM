@@ -21,21 +21,37 @@ DATABASE_URL="postgresql://meraglym:meraglym_password@localhost:5432/meraglym_os
 
 Open http://localhost:3000.
 
-## Database modes
+## Build targets and database modes
 
-The active backend is chosen at runtime by `src/lib/prisma.ts`:
+`MERAGLYM_TARGET` is read **at build time** (`next.config.ts`):
+
+- **web** (default — `npm run build`, Docker, Cloudflare/OpenNext, CI): PostgreSQL
+  only. The SQLite code path is removed as dead code, so web bundles contain no
+  SQLite client or native driver. `better-sqlite3` and its Prisma adapter are
+  `optionalDependencies`, so installs succeed even where they can't compile.
+- **desktop** (`npm run build:next`, used by the Electron build): supports both
+  backends, chosen at runtime by `src/lib/prisma.ts`:
 
 | `MERAGLYM_DB_MODE` | Backend | Driver |
 | --- | --- | --- |
 | `remote` | PostgreSQL / Supabase | `@prisma/adapter-pg` |
-| `local` (default for the desktop build) | embedded SQLite file | `@prisma/adapter-better-sqlite3` |
+| `local` (default) | embedded SQLite file | `@prisma/adapter-better-sqlite3` |
 
-If `MERAGLYM_DB_MODE` is unset, a `postgres://`/`postgresql://` `DATABASE_URL`
-selects `remote`; otherwise `local` is used. In local mode the database file is
+In a desktop build, if `MERAGLYM_DB_MODE` is unset, a `postgres://`/`postgresql://`
+`DATABASE_URL` selects `remote`; otherwise `local` is used, with the database file
 taken from `MERAGLYM_SQLITE_PATH`.
 
 To use the production database from the desktop app, set `MERAGLYM_DB_MODE=remote`
 and a Supabase `DATABASE_URL` in the environment the app is launched with.
+
+## Docker (web)
+
+```bash
+docker build -t meraglym-web .
+docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." meraglym-web
+```
+
+The image uses Node 22 (Next.js 16 needs ≥ 20.9; Prisma 7 needs ^20.19/^22.12).
 
 ## Windows desktop app
 
@@ -54,8 +70,8 @@ This starts `next dev` and opens an Electron window pointed at it.
 
 ### Build the installer locally (on Windows)
 
-Requires Windows with the standard native-module build tools (Visual Studio
-Build Tools + Python), which Electron needs to compile SQLite.
+Requires Windows with Node.js 22 and the standard native-module build tools
+(Visual Studio Build Tools + Python), which Electron needs to compile SQLite.
 
 ```bash
 npm ci
