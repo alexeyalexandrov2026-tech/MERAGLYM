@@ -17,15 +17,13 @@ class CameraAdapter(BaseAdapter):
             raise ValueError("CameraAdapter requires a valid string 'value'.")
             
         import os
+        import shutil
         import subprocess
-        cctvscan_path = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\cctvscan-main\cctvscan-main\cctvscan.exe"
-        if not os.path.exists(cctvscan_path):
-            # Try without .exe for Linux environment if running in WSL or similar
-            cctvscan_path = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\cctvscan-main\cctvscan-main\cctvscan"
-        
-        has_cctvscan = os.path.exists(cctvscan_path)
-        if not has_cctvscan:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: cctvscan executable not found at designated path.")
+        # Resolve the cctvscan binary from CCTVSCAN_PATH or the system PATH so
+        # this works cross-platform instead of a hardcoded location.
+        cctvscan_path = os.environ.get("CCTVSCAN_PATH") or shutil.which("cctvscan")
+        if not cctvscan_path or not os.path.exists(cctvscan_path):
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: cctvscan executable not found (set CCTVSCAN_PATH or add it to PATH).")
             
         observations = []
         try:

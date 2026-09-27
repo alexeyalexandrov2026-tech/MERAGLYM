@@ -19,11 +19,13 @@ class GeospatialAdapter(BaseAdapter):
             
         import os, subprocess, json, shutil
         has_geowifi = shutil.which("geowifi")
-        geowifi_script = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\geowifi-main\geowifi-main\geowifi.py"
-        has_geowifi_script = os.path.exists(geowifi_script)
-        
+        # Resolve the GeoWiFi script from GEOWIFI_PATH so this works
+        # cross-platform instead of a hardcoded location.
+        geowifi_script = os.environ.get("GEOWIFI_PATH")
+        has_geowifi_script = bool(geowifi_script and os.path.exists(geowifi_script))
+
         if not has_geowifi and not has_geowifi_script:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: GeoWiFi executable or script not found.")
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: GeoWiFi executable or script not found (set GEOWIFI_PATH or add geowifi to PATH).")
         
         # Geowifi requires Wigle API tokens (stored in WIGLE_API_KEY env or similar, wait, geowifi uses an interactive prompt for API keys)
         # Actually, let's just attempt to run it and capture the output.
