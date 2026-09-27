@@ -124,15 +124,36 @@ jobs:
           Write-Host "App running; user database at $($seeded.FullName) ($([math]::Round($seeded.Length / 1KB)) KB)"
           Get-Process -Name MERAGLYM -ErrorAction SilentlyContinue | Stop-Process -Force
 
+      - name: Record installer SHA-256
+        shell: pwsh
+        run: |
+          # Publish the hash of the installer itself (GitHub only records the
+          # artifact zip's digest): in this log, on the run's Summary page, and
+          # as a sha256sum-compatible SHA256SUMS.txt shipped next to the .exe.
+          "| File | Bytes | SHA-256 |" | Out-File -Append $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          "|---|---|---|" | Out-File -Append $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          $lines = foreach ($f in Get-ChildItem release\*.exe) {
+            $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($f.Name)"
+            Write-Host ("{0}  {1}  ({2:N0} bytes)" -f $h, $f.Name, $f.Length)
+            "| ``$($f.Name)`` | $($f.Length) | ``$h`` |" | Out-File -Append $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          }
+          if (-not $lines) { throw "No installer found to hash" }
+          $lines | Out-File release\SHA256SUMS.txt -Encoding ascii
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: meraglym-windows-installer
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Attach installer to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/SHA256SUMS.txt
