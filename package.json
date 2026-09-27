@@ -15,7 +15,8 @@
     "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron",
     "build:desktop": "npm run prisma:generate && npm run build:seeddb && npm run build:next && npm run assemble:standalone && npm run build:electron",
     "dist:win": "npm run build:desktop && electron-builder --win --config electron-builder.yml --publish never",
-    "dev:desktop": "npm run build:electron && concurrently -k -n next,electron \"cross-env MERAGLYM_TARGET=desktop MERAGLYM_SQLITE_PATH=resources/app.db next dev\" \"wait-on http://127.0.0.1:3000 && cross-env MERAGLYM_DEV_URL=http://127.0.0.1:3000 electron dist-electron/main.js\""
+    "dev:desktop": "npm run build:electron && concurrently -k -n next,electron \"cross-env MERAGLYM_TARGET=desktop MERAGLYM_SQLITE_PATH=resources/app.db next dev\" \"wait-on http://127.0.0.1:3000 && cross-env MERAGLYM_DEV_URL=http://127.0.0.1:3000 electron dist-electron/main.js\"",
+    "test": "ts-node --transpile-only -P scripts/tsconfig.json tests/search.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
