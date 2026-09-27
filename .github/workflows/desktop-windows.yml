@@ -170,12 +170,133 @@ jobs:
           if (-not $lines) { throw "No installer found to hash" }
           $lines | Out-File release\SHA256SUMS.txt -Encoding ascii
 
+      - name: Create install archive
+        shell: pwsh
+        run: |
+          # A separate, self-describing download: installer + checksums + instructions.
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $exe = Get-ChildItem release\*.exe | Select-Object -First 1
+          $h = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          $stage = Join-Path $env:RUNNER_TEMP "archive"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item $exe.FullName $stage
+          Copy-Item release\SHA256SUMS.txt $stage
+          @"
+          MERAGLYM $v for Windows (64-bit)
+          ====================================
+
+          INSTALL
+            1. Double-click "$($exe.Name)".
+            2. If Windows SmartScreen says "Windows protected your PC", click
+               "More info" and then "Run anyway" (the installer is not code-signed).
+            3. MERAGLYM installs for your user only (no administrator rights needed),
+               starts automatically, and adds Desktop and Start Menu shortcuts.
+
+          NOTHING ELSE TO INSTALL
+            The app is self-contained: no Node.js, Python, PostgreSQL or Docker needed.
+            It works offline with its built-in OSINT database.
+
+          WHERE THINGS GO
+            Program: a MERAGLYM folder under %LOCALAPPDATA%\Programs\
+            Data:    %APPDATA%\meraglym-open-intelligence\meraglym.db
+
+          VERIFY THE DOWNLOAD (optional, PowerShell)
+            Get-FileHash "$($exe.Name)" -Algorithm SHA256
+            Expected SHA-256: $h
+
+          UNINSTALL
+            Settings > Apps > Installed apps > MERAGLYM > Uninstall.
+          "@ -replace '(?m)^          ', '' | Out-File (Join-Path $stage "INSTALL.txt") -Encoding utf8
+          $zip = "release\MERAGLYM-$v-windows-x64.zip"
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -Force
+          $z = Get-Item $zip
+          $zh = (Get-FileHash $z.FullName -Algorithm SHA256).Hash.ToLower()
+          Add-Content release\SHA256SUMS.txt "$zh  $($z.Name)" -Encoding ascii
+          "| ``$($z.Name)`` | $($z.Length) | ``$zh`` |" | Out-File -Append $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          Write-Host ("{0}  {1}  ({2:N0} bytes)" -f $zh, $z.Name, $z.Length)
+          Write-Host "Archive contents:"; (Get-ChildItem $stage).Name | ForEach-Object { Write-Host "  $_" }
+
+      - name: Install from the archive and test the installed app
+        shell: pwsh
+        run: |
+          # What a user does: unzip, run the installer, use the app, uninstall.
+          Get-Process -Name MERAGLYM -ErrorAction SilentlyContinue | Stop-Process -Force
+          $zip = Get-ChildItem release\*.zip | Select-Object -First 1
+          $x = Join-Path $env:RUNNER_TEMP "unzipped"
+          Expand-Archive $zip.FullName $x -Force
+          $setup = Get-ChildItem $x -Filter *.exe | Select-Object -First 1
+          $expected = ((Get-Content (Join-Path $x "SHA256SUMS.txt"))[0]).Substring(0, 64)
+          if ((Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Installer in the archive does not match its SHA256SUMS.txt" }
+          if (-not (Test-Path (Join-Path $x "INSTALL.txt"))) { throw "INSTALL.txt missing from archive" }
+
+          Write-Host "Installing $($setup.Name) silently..."
+          Start-Process $setup.FullName -ArgumentList "/S" -Wait
+          $app = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter MERAGLYM.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw "MERAGLYM.exe not found under %LOCALAPPDATA%\Programs after install" }
+          $root = $app.DirectoryName
+          Write-Host "Installed to $root"
+          # The installer may auto-launch the app; stop it before testing.
+          Start-Sleep -Seconds 5
+          Get-Process -Name MERAGLYM -ErrorAction SilentlyContinue | Stop-Process -Force
+          $startMenu = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "MERAGLYM*.lnk" -ErrorAction SilentlyContinue
+          $desktop = Get-ChildItem ([Environment]::GetFolderPath("Desktop")) -Filter "MERAGLYM*.lnk" -ErrorAction SilentlyContinue
+          if (-not $startMenu) { throw "Start Menu shortcut missing" }
+          if (-not $desktop) { throw "Desktop shortcut missing" }
+          Write-Host "Shortcuts: $($startMenu[0].FullName); $($desktop[0].FullName)"
+
+          # Run the INSTALLED server under the INSTALLED MERAGLYM.exe and use search.
+          $standalone = Join-Path $root "resources\app\.next\standalone"
+          $db = Join-Path $env:RUNNER_TEMP "installed-smoke.db"
+          Copy-Item (Join-Path $root "resources\app.db") $db -Force
+          $env:ELECTRON_RUN_AS_NODE = "1"; $env:NODE_ENV = "production"
+          $env:MERAGLYM_DB_MODE = "local"; $env:MERAGLYM_SQLITE_PATH = $db
+          $env:PORT = "3998"; $env:HOSTNAME = "127.0.0.1"
+          $srv = Start-Process -FilePath $app.FullName -ArgumentList "`"$standalone\server.js`"" -WorkingDirectory $standalone -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) { try { Invoke-WebRequest "http://127.0.0.1:3998/" -UseBasicParsing -TimeoutSec 5 | Out-Null; $ready = $true; break } catch { Start-Sleep -Seconds 1 } }
+            if (-not $ready) { throw "Installed server did not start" }
+            $dating = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating")
+            $apps = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating%20apps")
+            Write-Host "search 'dating':      $($dating.Count) results, first = $($dating[0].name)"
+            Write-Host "search 'dating apps': $($apps.Count) results: $(($apps | ForEach-Object name) -join ', ')"
+            if ($dating[0].name -ne "Dating") { throw "Expected the Dating category first for 'dating'" }
+            if ($apps.Count -lt 5 -or -not ($apps.name -contains "Tinder (R)")) { throw "'dating apps' did not return the dating apps" }
+            $children = @(Invoke-RestMethod "http://127.0.0.1:3998/api/nodes?parentId=$($dating[0].id)")
+            Write-Host "Dating category: $($children.Count) apps"
+            if ($children.Count -lt 10) { throw "Dating category has too few entries" }
+          } finally {
+            Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+          }
+
+          # Launch the installed desktop app as a user would (fresh profile data).
+          Get-ChildItem $env:APPDATA -Recurse -Filter meraglym.db -ErrorAction SilentlyContinue | Remove-Item -Force
+          $gui = Start-Process -FilePath $app.FullName -PassThru
+          Start-Sleep -Seconds 40
+          $gui.Refresh()
+          if ($gui.HasExited) { throw "Installed MERAGLYM exited during startup (exit code $($gui.ExitCode))" }
+          $seeded = Get-ChildItem $env:APPDATA -Recurse -Filter meraglym.db -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $seeded) { throw "Installed app did not create its database" }
+          Write-Host "Installed app running; database $($seeded.FullName)"
+          Get-Process -Name MERAGLYM -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+
+          # Uninstall and confirm removal.
+          $uninstaller = Get-ChildItem $root -Filter "Uninstall*.exe" | Select-Object -First 1
+          if (-not $uninstaller) { throw "Uninstaller not found" }
+          Start-Process $uninstaller.FullName -ArgumentList "/S" -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path $app.FullName); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app.FullName) { throw "Uninstall did not remove MERAGLYM.exe" }
+          Write-Host "Uninstalled cleanly."
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: meraglym-windows-installer
           path: |
             release/*.exe
+            release/*.zip
             release/SHA256SUMS.txt
           if-no-files-found: error
 
@@ -190,6 +311,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.exe
+            release/*.zip
             release/SHA256SUMS.txt
 
       - name: Verify published release assets
@@ -199,20 +321,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          # Download what users will download and check it end to end.
+          # Download what users will download and check every file end to end.
           $d = Join-Path $env:RUNNER_TEMP "published"
           gh release download $env:TAG --repo "${{ github.repository }}" --dir $d
           if ($LASTEXITCODE -ne 0) { throw "gh release download failed" }
           Get-ChildItem $d | ForEach-Object { Write-Host ("published asset: {0} ({1:N0} bytes)" -f $_.Name, $_.Length) }
-          $exe = @(Get-ChildItem $d -Filter *.exe)
-          if ($exe.Count -ne 1) { throw "Expected exactly 1 published .exe, found $($exe.Count)" }
           $sumsFile = Join-Path $d "SHA256SUMS.txt"
           if (-not (Test-Path $sumsFile)) { throw "SHA256SUMS.txt is not published" }
-          $entry = Get-Content $sumsFile | Where-Object { $_ -match '^[0-9a-f]{64}  ' } | Select-Object -First 1
-          if (-not $entry) { throw "No hash line in SHA256SUMS.txt" }
-          $expected = $entry.Substring(0, 64)
-          $published = (Get-FileHash $exe[0].FullName -Algorithm SHA256).Hash.ToLower()
-          $built = (Get-FileHash (Get-ChildItem release\*.exe | Select-Object -First 1).FullName -Algorithm SHA256).Hash.ToLower()
-          if ($published -ne $expected) { throw "Published installer $published does not match SHA256SUMS.txt $expected" }
-          if ($published -ne $built) { throw "Published installer $published differs from the built installer $built" }
-          Write-Host "Published installer SHA-256 matches SHA256SUMS.txt and the built file: $published"
+          $entries = @(Get-Content $sumsFile | Where-Object { $_ -match '^[0-9a-f]{64}  ' })
+          if ($entries.Count -lt 2) { throw "Expected installer and archive entries in SHA256SUMS.txt, found $($entries.Count)" }
+          foreach ($line in $entries) {
+            $expected = $line.Substring(0, 64)
+            $name = $line.Substring(66)
+            # GitHub replaces spaces in asset names with dots.
+            $published = Join-Path $d $name
+            if (-not (Test-Path $published)) { $published = Join-Path $d ($name -replace ' ', '.') }
+            if (-not (Test-Path $published)) { throw "$name is listed in SHA256SUMS.txt but not published" }
+            $actual = (Get-FileHash $published -Algorithm SHA256).Hash.ToLower()
+            $built = (Get-FileHash (Join-Path "release" $name) -Algorithm SHA256).Hash.ToLower()
+            if ($actual -ne $expected) { throw "Published $name is $actual, SHA256SUMS.txt says $expected" }
+            if ($actual -ne $built) { throw "Published $name differs from the built file" }
+            Write-Host "verified: $name  $actual"
+          }
