@@ -26,6 +26,10 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
+    # "Attach installer to release" creates the GitHub release on v* tags;
+    # the default GITHUB_TOKEN is read-only for repository contents.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
