@@ -5,6 +5,15 @@ name: Desktop (Windows installer)
 # so this must run on windows-latest.
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Publish a release: create this tag (e.g. v0.1.0) at release_sha. Leave empty for a build-only run."
+        required: false
+        default: ""
+      release_sha:
+        description: "Full commit SHA to build, tag and release (required with release_tag)."
+        required: false
+        default: ""
   push:
     tags:
       - "v*"
@@ -32,6 +41,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Empty for PR/tag/build-only runs, which keeps checkout's default ref.
+          ref: ${{ inputs.release_sha }}
+
+      - name: Validate release inputs
+        if: inputs.release_tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw "release_tag must look like v1.2.3, got '$env:RELEASE_TAG'" }
+          if ($env:RELEASE_SHA -notmatch '^[0-9a-f]{40}$') { throw "release_sha must be a full 40-char commit SHA" }
+          $head = (git rev-parse HEAD).Trim()
+          if ($head -ne $env:RELEASE_SHA) { throw "Checked out $head, expected $env:RELEASE_SHA" }
+          Write-Host "Releasing $env:RELEASE_TAG from $head"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -155,9 +180,39 @@ jobs:
           if-no-files-found: error
 
       - name: Attach installer to release
-        if: startsWith(github.ref, 'refs/tags/v')
+        # On a pushed v* tag, or on a dispatched release run, which creates the
+        # tag at release_sha together with the release.
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ inputs.release_sha || github.sha }}
+          fail_on_unmatched_files: true
           files: |
             release/*.exe
             release/SHA256SUMS.txt
+
+      - name: Verify published release assets
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          # Download what users will download and check it end to end.
+          $d = Join-Path $env:RUNNER_TEMP "published"
+          gh release download $env:TAG --repo "${{ github.repository }}" --dir $d
+          if ($LASTEXITCODE -ne 0) { throw "gh release download failed" }
+          Get-ChildItem $d | ForEach-Object { Write-Host ("published asset: {0} ({1:N0} bytes)" -f $_.Name, $_.Length) }
+          $exe = @(Get-ChildItem $d -Filter *.exe)
+          if ($exe.Count -ne 1) { throw "Expected exactly 1 published .exe, found $($exe.Count)" }
+          $sumsFile = Join-Path $d "SHA256SUMS.txt"
+          if (-not (Test-Path $sumsFile)) { throw "SHA256SUMS.txt is not published" }
+          $entry = Get-Content $sumsFile | Where-Object { $_ -match '^[0-9a-f]{64}  ' } | Select-Object -First 1
+          if (-not $entry) { throw "No hash line in SHA256SUMS.txt" }
+          $expected = $entry.Substring(0, 64)
+          $published = (Get-FileHash $exe[0].FullName -Algorithm SHA256).Hash.ToLower()
+          $built = (Get-FileHash (Get-ChildItem release\*.exe | Select-Object -First 1).FullName -Algorithm SHA256).Hash.ToLower()
+          if ($published -ne $expected) { throw "Published installer $published does not match SHA256SUMS.txt $expected" }
+          if ($published -ne $built) { throw "Published installer $published differs from the built installer $built" }
+          Write-Host "Published installer SHA-256 matches SHA256SUMS.txt and the built file: $published"
