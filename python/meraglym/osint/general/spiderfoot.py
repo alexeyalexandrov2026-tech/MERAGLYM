@@ -18,10 +18,11 @@ class SpiderFootAdapter(BaseAdapter):
             
         import os
         import subprocess
-        sf_script = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\spiderfoot\sf.py"
-        has_spiderfoot = os.path.exists(sf_script)
-        if not has_spiderfoot:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: sf.py (spiderfoot) script not found.")
+        # Resolve the SpiderFoot script from SPIDERFOOT_PATH so this works
+        # cross-platform instead of a hardcoded location.
+        sf_script = os.environ.get("SPIDERFOOT_PATH")
+        if not sf_script or not os.path.exists(sf_script):
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: sf.py (spiderfoot) script not found (set SPIDERFOOT_PATH to sf.py).")
             
         observations = []
         try:

@@ -18,11 +18,11 @@ class DarkWebAdapter(BaseAdapter):
             
         import os
         import subprocess
-        torbot_path = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\TorBot-dev\TorBot-dev\main.py"
-        has_torbot = os.path.exists(torbot_path)
-        
-        if not has_torbot:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: torbot script not found at designated path.")
+        # Resolve the TorBot entry script from TORBOT_PATH so this works
+        # cross-platform instead of a hardcoded location.
+        torbot_path = os.environ.get("TORBOT_PATH")
+        if not torbot_path or not os.path.exists(torbot_path):
+            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: torbot script not found (set TORBOT_PATH to TorBot main.py).")
             
         observations = []
         try:

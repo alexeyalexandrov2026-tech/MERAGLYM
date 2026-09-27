@@ -68,16 +68,18 @@ class SocialMediaAdapter(BaseAdapter):
             except Exception as e:
                 print(f"Maigret exception: {e}")
                 
-        # Social Analyzer execution if missing maigret or if we want to augment
-        sa_script = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\social-analyzer-main\social-analyzer-main\app.py"
-        has_sa_script = os.path.exists(sa_script)
-        
+        # Social Analyzer execution if missing maigret or if we want to augment.
+        # Resolve the script from SOCIAL_ANALYZER_PATH so this works
+        # cross-platform instead of a hardcoded location.
+        sa_script = os.environ.get("SOCIAL_ANALYZER_PATH")
+        has_sa_script = bool(sa_script and os.path.exists(sa_script))
+
         if has_sa_script and not observations:
             try:
                 env = os.environ.copy()
                 env["PYTHONIOENCODING"] = "utf-8"
                 # Set path so that modules load correctly
-                env["PYTHONPATH"] = r"C:\Users\alexa\OneDrive\Desktop\MERAGLYM_unpacked\social-analyzer-main\social-analyzer-main"
+                env["PYTHONPATH"] = os.path.dirname(sa_script)
                 
                 cmd = ["python", sa_script, "--username", target_username, "--output", "json", "--top", "50"]
                 result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding="utf-8")

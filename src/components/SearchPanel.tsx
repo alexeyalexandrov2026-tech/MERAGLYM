@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { Node } from "@prisma/client";
 import { useI18n } from "@/lib/i18nContext";
 
@@ -11,20 +11,7 @@ export default function SearchPanel() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (query.trim().length > 2) {
-        performSearch(query);
-      } else {
-        setResults([]);
-        setSearched(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [query]);
-
-  const performSearch = async (q: string) => {
+  const performSearch = useCallback(async (q: string) => {
     setLoading(true);
     setSearched(true);
     try {
@@ -38,7 +25,20 @@ export default function SearchPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (query.trim().length > 2) {
+        performSearch(query);
+      } else {
+        setResults([]);
+        setSearched(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, performSearch]);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "40px" }}>

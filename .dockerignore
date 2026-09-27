@@ -1,0 +1,26 @@
+# Host dependencies and build output must not overwrite the image's own
+# (Alpine/musl) node_modules or build artifacts.
+node_modules
+.next
+out
+build
+
+# Desktop (Electron) build artifacts and generated clients
+dist-electron
+release
+resources
+src/generated
+
+# Not part of the web image
+staging_archives
+python
+.git
+.github
+.agents
+.claude
+.windsurf
+
+# Local environment and logs
+.env*
+*.log
+npm-debug.log*

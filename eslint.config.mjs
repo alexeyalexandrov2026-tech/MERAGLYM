@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored third-party OSINT tool sources kept for reference only.
+    // These are not part of the application and must not be linted.
+    "staging_archives/**",
+    "python/**",
+    // Generated Prisma clients and desktop build outputs.
+    "src/generated/**",
+    "dist-electron/**",
+    "release/**",
   ]),
 ]);
 

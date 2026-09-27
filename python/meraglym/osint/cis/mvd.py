@@ -36,7 +36,9 @@ class MvdAdapter(BaseAdapter):
                             "reliability": 0.9
                         })
         except Exception as e:
-            raise RuntimeError(f"MVD fetch failed: {e}")
+            raise RuntimeError(
+                f"REQUIRES_EXTERNAL_SERVICE: MVD fetch failed (мвд.рф unreachable): {e}"
+            )
 
         return observations
 

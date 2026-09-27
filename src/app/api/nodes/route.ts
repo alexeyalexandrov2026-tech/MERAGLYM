@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma();
     const nodes = await prisma.node.findMany({
       where: {
         parentId: parentId,
