@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import type { Node } from "@prisma/client";
 import { useI18n } from "@/lib/i18nContext";
 
@@ -137,7 +137,7 @@ export default function Sidebar({ initialNodes, onSelectNode, selectedNodeId }: 
           {t("sidebar.sysIndex")}
         </h2>
         <div style={{ fontSize: "11px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-          {t("sidebar.rootCategories")} // {initialNodes.length} {t("sidebar.entries")}
+          {t("sidebar.rootCategories")} {"//"} {initialNodes.length} {t("sidebar.entries")}
         </div>
       </div>
       

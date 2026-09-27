@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { Job } from "@prisma/client";
 import { useI18n } from "@/lib/i18nContext";
 
@@ -9,7 +9,7 @@ export default function JobsPanel() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       const res = await fetch("/api/jobs");
       if (res.ok) {
@@ -21,13 +21,22 @@ export default function JobsPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
+    // Defer the initial fetch to a timer callback so state updates never
+    // happen synchronously inside the effect body (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => {
+      void fetchJobs();
+    }, 0);
+    const interval = setInterval(() => {
+      void fetchJobs();
+    }, 5000); // Poll every 5 seconds
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, [fetchJobs]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

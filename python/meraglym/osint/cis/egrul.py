@@ -32,7 +32,13 @@ class EgrulAdapter(BaseAdapter):
         if not target_value and not pdf_url:
             raise ValueError("EGRUL adapter requires a 'value' (INN/OGRN) or 'pdf_url'.")
 
-        from atomno_mcp_fns_check.sources.egrul import EgrulClient
+        try:
+            from atomno_mcp_fns_check.sources.egrul import EgrulClient
+        except ImportError:
+            raise RuntimeError(
+                "EXTERNAL_DEPENDENCY_UNAVAILABLE: atomno-mcp-fns-check not installed."
+            )
+
         observations = []
         try:
             async with EgrulClient() as client:

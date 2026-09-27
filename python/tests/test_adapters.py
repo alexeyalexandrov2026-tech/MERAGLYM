@@ -27,12 +27,14 @@ async def test_stix_adapter():
     assert obs["confidence"] == 0.90
 
 @pytest.mark.asyncio
-async def test_rfsd_adapter():
+async def test_rfsd_adapter_requires_inn():
+    # RFSD now queries bo.nalog.ru over live HTTP, so it no longer has an
+    # importable dependency to guard. Validate the deterministic offline path:
+    # a missing 'inn' must raise a ValueError before any network access.
     adapter = RfsdAdapter()
-    payload = {"inn": "7736050003"}
-    
-    with pytest.raises(RuntimeError, match="EXTERNAL_DEPENDENCY_UNAVAILABLE"):
-        await adapter.execute(payload)
+
+    with pytest.raises(ValueError, match="inn"):
+        await adapter.execute({})
 
 @pytest.mark.asyncio
 async def test_egrul_adapter():

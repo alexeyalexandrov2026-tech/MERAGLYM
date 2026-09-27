@@ -40,7 +40,9 @@ class RfsdAdapter(BaseAdapter):
                             "reliability": 0.99
                         })
         except Exception as e:
-            raise RuntimeError(f"RFSD fetch failed: {e}")
+            raise RuntimeError(
+                f"REQUIRES_EXTERNAL_SERVICE: RFSD fetch failed (bo.nalog.ru unreachable): {e}"
+            )
 
         return observations
 

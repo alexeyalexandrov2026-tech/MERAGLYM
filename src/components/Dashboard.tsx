@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import type { Node } from "@prisma/client";
+import type { Locale } from "@/lib/i18n";
 import Sidebar from "./Sidebar";
 import NodeView from "./NodeView";
 import Navigation from "./Navigation";
@@ -37,7 +38,7 @@ export default function Dashboard({ initialNodes }: DashboardProps) {
             <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{t("common.language")}:</span>
             <select 
               value={locale} 
-              onChange={(e) => setLocale(e.target.value as any)}
+              onChange={(e) => setLocale(e.target.value as Locale)}
               style={{ background: "transparent", color: "var(--text-accent)", border: "1px solid var(--border-highlight)", padding: "4px" }}
             >
               <option value="en">EN</option>

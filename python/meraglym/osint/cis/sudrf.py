@@ -33,7 +33,9 @@ class SudrfAdapter(BaseAdapter):
                         "reliability": 0.8
                     })
         except Exception as e:
-            raise RuntimeError(f"SUDRF fetch failed: {e}")
+            raise RuntimeError(
+                f"REQUIRES_EXTERNAL_SERVICE: SUDRF fetch failed (sudrf.ru unreachable): {e}"
+            )
 
         return observations
 
