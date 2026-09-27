@@ -16,6 +16,10 @@ const eslintConfig = defineConfig([
     // These are not part of the application and must not be linted.
     "staging_archives/**",
     "python/**",
+    // Generated Prisma clients and desktop build outputs.
+    "src/generated/**",
+    "dist-electron/**",
+    "release/**",
   ]),
 ]);
 

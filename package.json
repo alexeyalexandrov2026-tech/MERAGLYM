@@ -2,30 +2,49 @@
   "name": "meraglym-open-intelligence",
   "version": "0.1.0",
   "private": true,
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prisma:generate": "prisma generate && prisma generate --schema prisma/schema.sqlite.prisma",
+    "build:seeddb": "ts-node --transpile-only --compiler-options {\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"} scripts/build-seeddb.ts",
+    "build:next": "next build",
+    "assemble:standalone": "node scripts/assemble-standalone.mjs",
+    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron",
+    "rebuild:native": "electron-rebuild -f",
+    "build:desktop": "npm run prisma:generate && npm run build:seeddb && npm run rebuild:native && npm run build:next && npm run assemble:standalone && npm run build:electron",
+    "dist:win": "npm run build:desktop && electron-builder --win --config electron-builder.yml",
+    "dev:desktop": "npm run build:electron && concurrently -k -n next,electron \"next dev\" \"wait-on http://127.0.0.1:3000 && cross-env MERAGLYM_DEV_URL=http://127.0.0.1:3000 electron dist-electron/main.js\""
   },
   "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "better-sqlite3": "^13.0.3",
     "next": "16.3.0",
     "pg": "^8.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@types/node": "^20.19.43",
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "prisma": "^7.9.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wait-on": "^9.1.0"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"

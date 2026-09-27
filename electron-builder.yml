@@ -1,0 +1,41 @@
+appId: com.meraglym.desktop
+productName: MERAGLYM
+copyright: MERAGLYM
+
+directories:
+  output: release
+  buildResources: build
+
+# The Electron main process is bundled by esbuild (self-contained), and the
+# Next.js server ships as its own standalone bundle with its own node_modules,
+# so we do not need the root node_modules. asar is disabled so the Node utility
+# process can fork the standalone server and load its native modules from disk.
+asar: false
+npmRebuild: false
+nodeGypRebuild: false
+
+files:
+  - dist-electron/**/*
+  - .next/standalone/**/*
+  - package.json
+  - "!**/*.map"
+  - "!node_modules/**/*"
+
+# The pre-built, read-only seed database. Copied into the user's writable
+# app-data directory on first launch (see electron/main.ts).
+extraResources:
+  - from: resources/app.db
+    to: app.db
+
+win:
+  target:
+    - nsis
+  # Provide build/icon.ico to customize the app icon.
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: MERAGLYM
