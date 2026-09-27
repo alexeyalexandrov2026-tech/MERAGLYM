@@ -28,5 +28,17 @@
   },
   "observability": {
     "enabled": true
+  },
+  // Pull-request builds run `wrangler preview`, which requires this block.
+  // Previews don't inherit production settings: no DATABASE_URL secret (so a
+  // preview never touches the production database) and no service bindings
+  // (unsupported in Previews; the self-reference is only used for caching).
+  "previews": {
+    "images": {
+      "binding": "IMAGES"
+    },
+    "observability": {
+      "enabled": true
+    }
   }
 }
