@@ -225,7 +225,7 @@ jobs:
           $x = Join-Path $env:RUNNER_TEMP "unzipped"
           Expand-Archive $zip.FullName $x -Force
           $setup = Get-ChildItem $x -Filter *.exe | Select-Object -First 1
-          $expected = ((Get-Content (Join-Path $x "SHA256SUMS.txt"))[0]).Substring(0, 64)
+          $expected = @(Get-Content (Join-Path $x "SHA256SUMS.txt"))[0].Substring(0, 64)
           if ((Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Installer in the archive does not match its SHA256SUMS.txt" }
           if (-not (Test-Path (Join-Path $x "INSTALL.txt"))) { throw "INSTALL.txt missing from archive" }
 
