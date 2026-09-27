@@ -31,8 +31,33 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Unit tests
+        run: npm test
+
       - name: Build (web target)
         run: npm run build
+
+  cloudflare:
+    name: Cloudflare Worker (OpenNext) - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      # Same build Cloudflare Workers Builds runs (wrangler.jsonc build.command),
+      # bundled for upload but not deployed.
+      - name: Build and bundle the Worker (dry run)
+        run: npx wrangler deploy --dry-run --outdir .wrangler/dry-run
 
   docker:
     name: Web Docker image - build

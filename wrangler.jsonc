@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match the Worker connected to this repository in Cloudflare.
+  "name": "meraglym",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // `wrangler deploy` (the default Workers Builds deploy command) runs this
+  // first, so a plain deploy always ships a fresh OpenNext build.
+  "build": {
+    "command": "npx opennextjs-cloudflare build"
+  },
+  // Keep variables set in the Cloudflare dashboard (e.g. DATABASE_URL) instead
+  // of replacing them with the (empty) set in this file. Secrets are always kept.
+  "keep_vars": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "meraglym"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Pull-request builds run `wrangler preview`, which requires this block.
+  // Previews don't inherit production settings: no DATABASE_URL secret (so a
+  // preview never touches the production database) and no service bindings
+  // (unsupported in Previews; the self-reference is only used for caching).
+  "previews": {
+    "images": {
+      "binding": "IMAGES"
+    },
+    "observability": {
+      "enabled": true
+    }
+  }
+}

@@ -47,3 +47,8 @@ next-env.d.ts
 /dist-electron
 /release
 /resources/app.db
+
+# Cloudflare (OpenNext / wrangler)
+/.open-next/
+/.wrangler/
+.dev.vars*
