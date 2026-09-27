@@ -25,23 +25,30 @@ async function main(): Promise<void> {
   // Start from a clean file so `db push` never needs data-loss confirmation.
   await fs.rm(dbPath, { force: true });
 
+  // Forward slashes work for SQLite/Prisma on every OS and avoid backslash
+  // escaping issues in the URL on Windows.
+  const dbUrl = `file:${dbPath.split(path.sep).join("/")}`;
+
   console.log(`Creating schema in ${dbPath} ...`);
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+  // Run the Prisma CLI entry script with the current Node binary instead of
+  // spawning `npx`: on Windows, Node refuses to spawn `.cmd` shims without a
+  // shell (CVE-2024-27980 hardening), and this avoids shell quoting entirely.
+  const prismaCli = path.join(root, "node_modules", "prisma", "build", "index.js");
   execFileSync(
-    npx,
+    process.execPath,
     [
-      "prisma",
+      prismaCli,
       "db",
       "push",
       "--schema",
       "prisma/schema.sqlite.prisma",
       "--url",
-      `file:${dbPath}`,
+      dbUrl,
     ],
     { stdio: "inherit" },
   );
 
-  const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
+  const adapter = new PrismaBetterSqlite3({ url: dbUrl });
   const prisma = new PrismaClient({ adapter });
   try {
     console.log("Ingesting OSINT framework tree from public/arf.json ...");

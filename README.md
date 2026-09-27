@@ -70,8 +70,10 @@ This starts `next dev` and opens an Electron window pointed at it.
 
 ### Build the installer locally (on Windows)
 
-Requires Windows with Node.js 22 and the standard native-module build tools
-(Visual Studio Build Tools + Python), which Electron needs to compile SQLite.
+Requires Windows with Node.js 22, plus Python and Visual Studio Build Tools
+for npm's native-module install step. Nothing is compiled: `better-sqlite3` v13
+ships a prebuilt N-API binary for Windows, which loads under Electron without a
+rebuild (an npm `overrides` entry makes the Prisma adapter use that same copy).
 
 ```bash
 npm ci
@@ -80,8 +82,8 @@ npm run dist:win
 
 The chain (`build:desktop`) runs, in order:
 `prisma:generate` → `build:seeddb` (creates `resources/app.db`) →
-`rebuild:native` (rebuilds SQLite for Electron's ABI) → `build:next` →
-`assemble:standalone` → `build:electron`, then `electron-builder --win`.
+`build:next` → `assemble:standalone` → `build:electron`, then
+`electron-builder --win`.
 
 The installer is written to `release/MERAGLYM Setup <version>.exe`.
 

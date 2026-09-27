@@ -1,5 +1,6 @@
 appId: com.meraglym.desktop
 productName: MERAGLYM
+executableName: MERAGLYM
 copyright: MERAGLYM
 
 directories:
