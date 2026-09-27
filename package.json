@@ -16,7 +16,9 @@
     "build:desktop": "npm run prisma:generate && npm run build:seeddb && npm run build:next && npm run assemble:standalone && npm run build:electron",
     "dist:win": "npm run build:desktop && electron-builder --win --config electron-builder.yml --publish never",
     "dev:desktop": "npm run build:electron && concurrently -k -n next,electron \"cross-env MERAGLYM_TARGET=desktop MERAGLYM_SQLITE_PATH=resources/app.db next dev\" \"wait-on http://127.0.0.1:3000 && cross-env MERAGLYM_DEV_URL=http://127.0.0.1:3000 electron dist-electron/main.js\"",
-    "test": "ts-node --transpile-only -P scripts/tsconfig.json tests/search.test.ts"
+    "test": "ts-node --transpile-only -P scripts/tsconfig.json tests/search.test.ts",
+    "preview:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -27,6 +29,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@types/node": "^20.19.43",
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
@@ -41,7 +44,8 @@
     "prisma": "^7.9.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "wait-on": "^9.1.0"
+    "wait-on": "^9.1.0",
+    "wrangler": "^4.141.0"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"

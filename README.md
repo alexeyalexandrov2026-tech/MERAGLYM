@@ -53,6 +53,19 @@ docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." meraglym-web
 
 The image uses Node 22 (Next.js 16 needs ≥ 20.9; Prisma 7 needs ^20.19/^22.12).
 
+## Cloudflare Workers (web)
+
+The `meraglym` Worker is built with [OpenNext](https://opennext.js.org/cloudflare)
+(`open-next.config.ts`, `wrangler.jsonc`). Cloudflare's Git integration deploys
+it on every push to `main`: `wrangler deploy` runs the OpenNext build first
+(`build.command` in `wrangler.jsonc`). `DATABASE_URL` comes from the Worker's
+settings in the Cloudflare dashboard. `keep_vars` stops deploys from overwriting it.
+
+```bash
+npm run preview:cf   # build and run the Worker locally (needs DATABASE_URL in .dev.vars)
+npm run deploy:cf    # build and deploy manually
+```
+
 ## Windows desktop app
 
 The desktop build wraps the Next.js standalone server in Electron and ships an

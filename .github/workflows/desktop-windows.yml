@@ -256,13 +256,13 @@ jobs:
             $ready = $false
             for ($i = 0; $i -lt 60; $i++) { try { Invoke-WebRequest "http://127.0.0.1:3998/" -UseBasicParsing -TimeoutSec 5 | Out-Null; $ready = $true; break } catch { Start-Sleep -Seconds 1 } }
             if (-not $ready) { throw "Installed server did not start" }
-            $dating = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating")
-            $apps = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating%20apps")
+            $dating = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating" | ForEach-Object { $_ })
+            $apps = @(Invoke-RestMethod "http://127.0.0.1:3998/api/search?q=dating%20apps" | ForEach-Object { $_ })
             Write-Host "search 'dating':      $($dating.Count) results, first = $($dating[0].name)"
             Write-Host "search 'dating apps': $($apps.Count) results: $(($apps | ForEach-Object name) -join ', ')"
             if ($dating[0].name -ne "Dating") { throw "Expected the Dating category first for 'dating'" }
             if ($apps.Count -lt 5 -or -not ($apps.name -contains "Tinder (R)")) { throw "'dating apps' did not return the dating apps" }
-            $children = @(Invoke-RestMethod "http://127.0.0.1:3998/api/nodes?parentId=$($dating[0].id)")
+            $children = @(Invoke-RestMethod "http://127.0.0.1:3998/api/nodes?parentId=$($dating[0].id)" | ForEach-Object { $_ })
             Write-Host "Dating category: $($children.Count) apps"
             if ($children.Count -lt 10) { throw "Dating category has too few entries" }
           } finally {
