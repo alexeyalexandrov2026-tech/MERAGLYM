@@ -21,7 +21,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
-    "next": "16.3.0",
+    "next": "16.3.6",
     "pg": "^8.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -37,7 +37,7 @@
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
+    "eslint-config-next": "16.3.6",
     "prisma": "^7.9.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
