@@ -20,6 +20,9 @@ const eslintConfig = defineConfig([
     "src/generated/**",
     "dist-electron/**",
     "release/**",
+    // Cloudflare (OpenNext / wrangler) build outputs.
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 

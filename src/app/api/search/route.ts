@@ -1,89 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { getPrisma, getDbMode } from "@/lib/prisma";
-import type { Node } from "@prisma/client";
+import { rankNodes, toSearchTerms } from "@/lib/search";
+
+// Upper bound on candidate rows fetched before ranking (the whole OSINT tree is
+// ~1.4k nodes, so this only guards against pathological queries).
+const MAX_CANDIDATES = 2000;
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get("q");
+  const query = request.nextUrl.searchParams.get("q") ?? "";
+  const terms = toSearchTerms(query);
 
-  if (!query || query.trim().length === 0) {
+  if (terms.length === 0) {
     return NextResponse.json([]);
   }
 
   try {
     const prisma = await getPrisma();
 
-    if (getDbMode() === "remote") {
-      // PostgreSQL native full-text search, ranked by relevance.
-      // websearch_to_tsquery allows operators like "quoted text" or -exclude.
-      const nodes = await prisma.$queryRaw<Node[]>`
-        SELECT *
-        FROM "Node"
-        WHERE to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ websearch_to_tsquery('english', ${query})
-        ORDER BY ts_rank(
-          to_tsvector('english', name || ' ' || COALESCE(description, '')),
-          websearch_to_tsquery('english', ${query})
-        ) DESC
-        LIMIT 100;
-      `;
-      return NextResponse.json(nodes);
-    }
+    // Case-insensitive substring match on every term. PostgreSQL needs
+    // `mode: "insensitive"`; SQLite's LIKE is already case-insensitive and its
+    // Prisma client does not accept `mode`.
+    const insensitive: { mode?: Prisma.QueryMode } =
+      getDbMode() === "remote" ? { mode: "insensitive" } : {};
+    const candidates = await prisma.node.findMany({
+      where: {
+        OR: terms.flatMap((term) => [
+          { name: { contains: term, ...insensitive } },
+          { description: { contains: term, ...insensitive } },
+        ]),
+      },
+      take: MAX_CANDIDATES,
+    });
 
-    // Local SQLite: no tsvector, so use a case-insensitive LIKE over
-    // name/description. Rank name matches above description-only matches, then
-    // name matches that start with the query above the rest. Split the query
-    // into terms and require each term to appear (AND semantics).
-    const terms = query
-      .trim()
-      .split(/\s+/)
-      .filter((t) => t.length > 0)
-      .slice(0, 10);
-
-    if (terms.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    const escapeLike = (s: string) =>
-      s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-
-    const whereClause = terms
-      .map(
-        () =>
-          `((name LIKE ? ESCAPE '\\') OR (COALESCE(description, '') LIKE ? ESCAPE '\\'))`,
-      )
-      .join(" AND ");
-
-    const params: string[] = [];
-    for (const term of terms) {
-      const like = `%${escapeLike(term)}%`;
-      params.push(like, like);
-    }
-
-    // Ranking parameters: exact-ish name match for the first term.
-    const firstTerm = escapeLike(terms[0]);
-    const namePrefix = `${firstTerm}%`;
-    const nameContains = `%${firstTerm}%`;
-
-    const sql = `
-      SELECT *
-      FROM "Node"
-      WHERE ${whereClause}
-      ORDER BY
-        CASE WHEN name LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END,
-        CASE WHEN name LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END,
-        length(name),
-        name ASC
-      LIMIT 100;
-    `;
-
-    const nodes = await prisma.$queryRawUnsafe<Node[]>(
-      sql,
-      ...params,
-      namePrefix,
-      nameContains,
-    );
-
-    return NextResponse.json(nodes);
+    return NextResponse.json(rankNodes(candidates, query, terms));
   } catch (error) {
     console.error("Error executing search:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

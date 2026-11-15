@@ -79,11 +79,20 @@ const globalForPrisma = globalThis as unknown as {
   meraglymPrisma?: Promise<PrismaClient>;
 };
 
+// Cloudflare Workers cannot reuse a socket opened while handling a different
+// request (the second request hangs), so there each call gets its own client.
+const isCloudflareWorker =
+  typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+
 /**
- * Return the shared Prisma client for the active database mode.
- * Server-only. Always `await` this instead of importing a client directly.
+ * Return the Prisma client for the active database mode: shared per process,
+ * or per call on Cloudflare Workers. Server-only. Always `await` this instead
+ * of importing a client directly, and call it once per request.
  */
 export function getPrisma(): Promise<PrismaClient> {
+  if (isCloudflareWorker) {
+    return createClient();
+  }
   if (!globalForPrisma.meraglymPrisma) {
     globalForPrisma.meraglymPrisma = createClient();
   }

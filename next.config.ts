@@ -33,7 +33,21 @@ const nextConfig: NextConfig = {
         // than bundled by the server compiler.
         serverExternalPackages: ["better-sqlite3", "@prisma/adapter-better-sqlite3"],
       }
-    : {}),
+    : {
+        // pg loads `pg-cloudflare` only on Cloudflare Workers, through its
+        // "workerd" export, which Next's tracer never follows (it copies just
+        // the Node fallback). Include the whole package so the OpenNext
+        // Workers bundle can resolve it.
+        outputFileTracingIncludes: {
+          "/": ["./node_modules/pg-cloudflare/**"],
+          "/api/**": ["./node_modules/pg-cloudflare/**"],
+        },
+        // Leave Prisma unbundled so the OpenNext Workers bundler resolves its
+        // "workerd" build, which loads the query compiler as a Wasm module.
+        // Bundled by Next, the Node build compiles Wasm at runtime, which
+        // Cloudflare Workers forbid. Node servers (Docker) are unaffected.
+        serverExternalPackages: ["@prisma/client", ".prisma/client"],
+      }),
 };
 
 export default nextConfig;
