@@ -47,12 +47,46 @@ When the variable is unset and the tool is not on `PATH`, the adapter reports
 
 | Adapter | Env var | Points to |
 | :--- | :--- | :--- |
-| `camera_recon` | `CCTVSCAN_PATH` | `cctvscan` binary (or add it to `PATH`) |
+| `camera_recon` | `CCTVSCAN_PATH` | CCTV-scanner `latest.py` |
 | `darkweb_mapper` | `TORBOT_PATH` | TorBot `main.py` |
 | `geospatial_mapper` | `GEOWIFI_PATH` | GeoWiFi `geowifi.py` (or add `geowifi` to `PATH`) |
 | `social_recon` | `SOCIAL_ANALYZER_PATH` | Social Analyzer `app.py` (Maigret is auto-detected on `PATH`) |
 | `spiderfoot_meta` | `SPIDERFOOT_PATH` | SpiderFoot `sf.py` |
 
 Credential-gated adapters read their secrets from the environment:
-`BLOCKCHAIN_API_KEY` (`crypto_recon`), `OPENCTI_TOKEN` (`opencti_connector`),
+
+`ETHERSCAN_API_KEY` (or `BLOCKCHAIN_API_KEY`) for Ethereum in `crypto_recon`, `OPENCTI_URL` + `OPENCTI_TOKEN` (`opencti_connector`),
 and a valid GHunt session (`email_recon`).
+
+## Adapters and worker-host setup
+
+All 19 adapters are registered when `meraglym.osint` is imported (the worker does
+this). An adapter whose tool, library or credential is missing fails the job
+immediately with a classified error instead of retrying:
+
+- `EXTERNAL_DEPENDENCY_UNAVAILABLE: …` — tool/library not installed or not configured;
+- `REQUIRES_USER_CREDENTIAL: …` — an API key / session is needed;
+- `GEO_BLOCKED: …` — a Russian registry is unreachable and no `RU_PROXY_URL` is set;
+- `REQUIRES_EXTERNAL_SERVICE: …` — upstream unreachable (outage, rate limit, proxy failure);
+  these are retried with backoff.
+
+| Adapter | Input | Needs on the worker host |
+| :--- | :--- | :--- |
+| `egrul_registry`, `fns_tax`, `efrsb_bankruptcy`, `fssp_check`, `kad_arbitr` | INN (OGRN for EGRUL) | `atomno-mcp-fns-check` (dependency) + Russian IP or `RU_PROXY_URL` |
+| `rfsd_financials`, `sudrf_courts`, `mvd_wanted` | INN / name | Russian IP or `RU_PROXY_URL` |
+| `holehe_recon` | email | `holehe` on `PATH` / `MERAGLYM_TOOLS_BIN` |
+| `social_recon` | username | `maigret` and/or `social-analyzer` on `PATH` |
+| `email_recon` | email | `ghunt` + a session (`ghunt login` as the worker user) |
+| `geospatial_mapper` | BSSID / SSID | `GEOWIFI_PATH` → `geowifi.py` (keys for WiGLE/Google/Combain optional) |
+| `metadata_extractor` | image URL / upload name | `exifread` (dependency); uploads in `METADATA_UPLOAD_DIR` |
+| `crypto_recon` | BTC / ETH address | BTC keyless (Esplora); ETH needs `ETHERSCAN_API_KEY` |
+| `camera_recon` | IP / CIDR ≤ /24 | `CCTVSCAN_PATH` → CCTV-scanner `latest.py`; public IPs need `CAMERA_SCAN_ALLOW_PUBLIC=1` |
+| `darkweb_mapper` | v3 .onion URL | `TORBOT_PATH` → TorBot `main.py` + tor SOCKS (`TOR_SOCKS_HOST`/`PORT`) |
+| `spiderfoot_meta` | domain / IP | `SPIDERFOOT_PATH` → `sf.py` |
+| `opencti_connector` | indicator | `OPENCTI_URL` + `OPENCTI_TOKEN` |
+| `stix_ingest` | STIX objects | — |
+
+Script-based tools are run with a `.venv/bin/python` found next to the script
+(or `<TOOL>_PYTHON`, e.g. `SPIDERFOOT_PYTHON`), so each tool keeps its own
+dependencies. The worker keeps a single database connection open and
+reconnects with backoff if it drops.
