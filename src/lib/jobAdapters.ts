@@ -7,6 +7,7 @@
 
 export type AdapterInput =
   | "inn"
+  | "inn_ogrn"
   | "email"
   | "username"
   | "name"
@@ -30,7 +31,7 @@ export interface JobAdapter {
 }
 
 export const JOB_ADAPTERS: readonly JobAdapter[] = [
-  { id: "egrul_registry", label: "ЕГРЮЛ/ЕГРИП (egrul.nalog.ru)", region: "RU", input: "inn", placeholder: "7707083893", requires: "RU IP / RU_PROXY_URL" },
+  { id: "egrul_registry", label: "ЕГРЮЛ/ЕГРИП (egrul.nalog.ru)", region: "RU", input: "inn_ogrn", placeholder: "7707083893 / 1027700132195", requires: "RU IP / RU_PROXY_URL" },
   { id: "fns_tax", label: "ФНС «Прозрачный бизнес»", region: "RU", input: "inn", placeholder: "7707083893", requires: "RU IP / RU_PROXY_URL" },
   { id: "rfsd_financials", label: "ГИР БО — бухотчётность (bo.nalog.ru)", region: "RU", input: "inn", placeholder: "7707083893", requires: "RU IP / RU_PROXY_URL" },
   { id: "efrsb_bankruptcy", label: "ЕФРСБ — банкротства", region: "RU", input: "inn", placeholder: "7707083893", requires: "RU IP / RU_PROXY_URL" },
@@ -54,6 +55,7 @@ export const JOB_ADAPTERS: readonly JobAdapter[] = [
 // Values are passed as argv to CLI tools on the worker, so none may start with "-".
 const VALIDATORS: Record<Exclude<AdapterInput, "stix">, RegExp> = {
   inn: /^(\d{10}|\d{12})$/,
+  inn_ogrn: /^(\d{10}|\d{12}|\d{13}|\d{15})$/,
   email: /^[A-Za-z0-9_][A-Za-z0-9_.+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/,
   username: /^@?[A-Za-z0-9_][A-Za-z0-9_.-]{1,63}$/,
   name: /^[\p{L}\p{N} .,'"«»()-]{2,200}$/u,

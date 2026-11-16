@@ -52,6 +52,7 @@ export default function JobsPanel() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [tokenInvalid, setTokenInvalid] = useState(false);
   const [adapterId, setAdapterId] = useState<string>(JOB_ADAPTERS[0].id);
   const [target, setTarget] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +69,7 @@ export default function JobsPanel() {
         cache: "no-store",
       });
       if (res.ok) {
+        setTokenInvalid(Boolean(stored) && res.headers.get("x-admin-auth") === "invalid");
         const data = await res.json();
         setJobs(data);
       }
@@ -172,7 +174,10 @@ export default function JobsPanel() {
             autoComplete="off"
             style={{ ...inputStyle, width: "220px" }}
             aria-label={t("jobsPanel.token")}
+            aria-invalid={tokenInvalid}
+            title={tokenInvalid ? t("jobsPanel.tokenInvalid") : undefined}
           />
+          {tokenInvalid && <span style={{ color: "#ff5555", fontSize: "0.75rem" }}>{t("jobsPanel.tokenInvalid")}</span>}
         </div>
         {adapter.input === "stix" ? (
           <textarea

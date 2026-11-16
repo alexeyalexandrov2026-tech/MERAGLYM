@@ -97,6 +97,13 @@ async def run_tool(
     )
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.CancelledError:
+        # Outer timeout (worker wait_for) or shutdown: don't orphan the tool's process group.
+        try:
+            os.killpg(proc.pid, 9)
+        except Exception:
+            proc.kill()
+        raise
     except asyncio.TimeoutError:
         try:
             os.killpg(proc.pid, 9)

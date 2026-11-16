@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 from typing import Any, Dict, List
+from urllib.parse import urlparse
 
 from meraglym.osint import BaseAdapter, registry
 from meraglym.osint._util import dependency_error, find_executable, run_tool, service_error
@@ -51,7 +52,8 @@ class SocialMediaAdapter(BaseAdapter):
                             continue
                         obs.append({
                             "entity_type": "Account",
-                            "entity_value": username,
+                            # one entity per platform (entities dedupe on type+value)
+                            "entity_value": f"{site}:{username}",
                             "metadata": {
                                 "source": "maigret", "platform": site, "url": info.get("url_user"),
                                 "tags": status.get("tags"), "ids": status.get("ids") or {},
@@ -78,7 +80,7 @@ class SocialMediaAdapter(BaseAdapter):
                         continue
                     obs.append({
                         "entity_type": "Account",
-                        "entity_value": username,
+                        "entity_value": f"{urlparse(link).hostname or link}:{username}",
                         "metadata": {"source": "social-analyzer", "url": link, "title": site.get("title"),
                                      "country": site.get("country"), "rate": site.get("rate"),
                                      "note": "social-analyzer detections are heuristic; verify manually"},

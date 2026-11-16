@@ -16,7 +16,8 @@ const MAX_QUEUED = Number(process.env.JOBS_MAX_QUEUED ?? 50);
  */
 export async function GET(request: Request) {
   try {
-    const authorized = checkAdmin(request) === "ok";
+    const auth = checkAdmin(request, { countFailures: false });
+    const authorized = auth === "ok";
     const prisma = await getPrisma();
     const jobs = await prisma.job.findMany({
       orderBy: {
@@ -43,7 +44,9 @@ export async function GET(request: Request) {
       updatedAt: job.updatedAt,
       redacted: true,
     }));
-    return NextResponse.json(redacted, { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(redacted, {
+      headers: { "cache-control": "no-store", "x-admin-auth": auth },
+    });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

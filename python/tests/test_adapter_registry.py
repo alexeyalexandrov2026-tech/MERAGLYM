@@ -162,3 +162,26 @@ def test_argv_option_injection_rejected():
         asyncio.run(SocialMediaAdapter().execute({"value": "--db"}))
     with pytest.raises(ValueError):
         asyncio.run(HoleheAdapter().execute({"value": "-x@example.com"}))
+
+
+def test_run_tool_killed_on_outer_cancel():
+    import asyncio
+    import os
+    import sys
+    import time
+    from meraglym.osint._util import run_tool
+
+    marker = f"/tmp/meraglym-runtool-{os.getpid()}"
+
+    async def main():
+        try:
+            await asyncio.wait_for(
+                run_tool([sys.executable, "-c", f"import time; time.sleep(1.5); open('{marker}','w').write('x')"], timeout=60),
+                timeout=0.3,
+            )
+        except asyncio.TimeoutError:
+            pass
+
+    asyncio.run(main())
+    time.sleep(2)
+    assert not os.path.exists(marker)

@@ -41,13 +41,20 @@ export function presentedToken(request: Request): string | null {
 
 export type AuthResult = "ok" | "missing" | "invalid" | "locked" | "disabled";
 
-export function checkAdmin(request: Request): AuthResult {
+/**
+ * `countFailures: false` is for read-only polling (GET /api/jobs): a wrong or
+ * half-typed token there just yields redacted data and must not lock the
+ * admin out of POST. Brute force via GET is impractical for a >=16-char random
+ * token and only ever reveals what the token already protects.
+ */
+export function checkAdmin(request: Request, opts: { countFailures?: boolean } = {}): AuthResult {
+  const countFailures = opts.countFailures ?? true;
   const expected = process.env.JOBS_ADMIN_TOKEN;
   if (!expected || expected.length < 16) return "disabled";
   const key = clientKey(request);
   const now = Date.now();
   const entry = failed.get(key);
-  if (entry && now - entry.first < FAILED_WINDOW_MS && entry.count >= MAX_FAILED) {
+  if (countFailures && entry && now - entry.first < FAILED_WINDOW_MS && entry.count >= MAX_FAILED) {
     return "locked";
   }
   const token = presentedToken(request);
@@ -56,6 +63,7 @@ export function checkAdmin(request: Request): AuthResult {
     failed.delete(key);
     return "ok";
   }
+  if (!countFailures) return "invalid";
   if (!entry || now - entry.first >= FAILED_WINDOW_MS) {
     failed.set(key, { count: 1, first: now });
   } else {
