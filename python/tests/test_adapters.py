@@ -1,8 +1,11 @@
+import builtins
+
 import pytest
-import asyncio
+
 from meraglym.osint.general.stix import StixAdapter
 from meraglym.osint.cis.rfsd import RfsdAdapter
 from meraglym.osint.cis.egrul import EgrulAdapter
+
 
 @pytest.mark.asyncio
 async def test_stix_adapter():
@@ -17,7 +20,7 @@ async def test_stix_adapter():
             }
         ]
     }
-    
+
     observations = await adapter.execute(payload)
     assert len(observations) == 1
     obs = observations[0]
@@ -26,20 +29,25 @@ async def test_stix_adapter():
     assert "Fancy Bear" in obs["metadata"]["aliases"]
     assert obs["confidence"] == 0.90
 
+
 @pytest.mark.asyncio
 async def test_rfsd_adapter_requires_inn():
-    # RFSD now queries bo.nalog.ru over live HTTP, so it no longer has an
-    # importable dependency to guard. Validate the deterministic offline path:
-    # a missing 'inn' must raise a ValueError before any network access.
+    # A missing INN must raise a ValueError before any network access.
     adapter = RfsdAdapter()
 
     with pytest.raises(ValueError, match="inn"):
         await adapter.execute({})
 
+
 @pytest.mark.asyncio
-async def test_egrul_adapter():
-    adapter = EgrulAdapter()
-    payload = {"value": "7736050003", "pdf_url": "http://example.com/mock.pdf"}
-    
+async def test_egrul_adapter_without_library(monkeypatch):
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("atomno_mcp_fns_check"):
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
     with pytest.raises(RuntimeError, match="EXTERNAL_DEPENDENCY_UNAVAILABLE"):
-        await adapter.execute(payload)
+        await EgrulAdapter().execute({"value": "7736050003"})

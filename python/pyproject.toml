@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "httpx>=0.28.1",
+    "atomno-mcp-fns-check>=0.1.12",
+    "exifread>=3.5.1",
+    "httpx[socks]>=0.28.1",
     "psycopg[binary]>=3.3.4",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
