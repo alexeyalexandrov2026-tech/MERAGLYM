@@ -26,6 +26,16 @@
   "images": {
     "binding": "IMAGES"
   },
+  // Production database access: Hyperdrive config "meraglym-supabase" pointing
+  // at the Supabase session pooler as role meraglym_app. The schema comes from
+  // the DATABASE_URL secret (?schema=meraglym). Not set for previews.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "23d5f28f004b4143824f84b8dad5a57f",
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
+    }
+  ],
   "observability": {
     "enabled": true
   },
