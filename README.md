@@ -107,6 +107,21 @@ The `Desktop (Windows installer)` GitHub Actions workflow builds the `.exe` on a
 `v*` tag; the installer is uploaded as a build artifact and attached to the
 release for tagged builds.
 
+## OSINT jobs (web UI + API)
+
+The **Jobs** panel queues OSINT adapter runs for the Python worker
+(`python -m meraglym.etl.worker`), which polls the `Job` table.
+
+- `POST /api/jobs` with header `x-admin-token: <JOBS_ADMIN_TOKEN>` and body
+  `{"adapter": "<identifier>", "target": "<value>"}` creates a `PENDING` job.
+  Adapters and input validation live in `src/lib/jobAdapters.ts`.
+- `GET /api/jobs` lists the latest 50 jobs; targets, results and errors are
+  only returned with a valid admin token.
+- `JOBS_ADMIN_TOKEN` (>= 16 chars) is a Worker secret; without it job creation
+  is disabled (503). Rate limits: `JOBS_RATE_PER_MINUTE` (default 10, global)
+  and `JOBS_MAX_QUEUED` (default 50). Repeated wrong tokens are locked out for
+  10 minutes per client IP.
+
 ## Intelligence layer (Python)
 
 An optional Python orchestration/ETL layer lives in `python/` (see

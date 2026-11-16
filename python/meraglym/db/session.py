@@ -47,3 +47,12 @@ def get_db_connection():
     # psycopg 3 connection
     with psycopg.connect(url) as conn:
         yield conn
+
+
+def connect():
+    """Open a long-lived psycopg connection for the worker.
+
+    ``prepare_threshold=None`` disables server-side prepared statements so the
+    connection also works through PgBouncer/Supavisor poolers.
+    """
+    return psycopg.connect(get_database_url(), prepare_threshold=None, connect_timeout=15)

@@ -1,47 +1,27 @@
-import asyncio
 from typing import Any, Dict, List
+
 from meraglym.osint import BaseAdapter, registry
+from meraglym.osint._util import require_inn
+from meraglym.osint.cis._atomno import call, import_client, to_dict
+
 
 class EfrsbAdapter(BaseAdapter):
-    """
-    Russian Unified Federal Register of Bankruptcy (EFRSB) Adapter.
-    Finds bankruptcy statuses via atomno-mcp-fns-check.
-    """
+    """EFRSB / Fedresurs (bankrot.fedresurs.ru) active bankruptcy cases by INN."""
     identifier = "efrsb_bankruptcy"
     region = "RU"
-    version = "1.0.0"
+    version = "2.0.0"
 
     async def execute(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-        inn = payload.get("value")
-        if not inn or not isinstance(inn, str):
-            raise ValueError("EfrsbAdapter requires a valid 'value' (INN).")
+        inn = require_inn(payload)
+        import_client("efrsb", "EfrsbClient")
+        cases = await call("bankrot.fedresurs.ru", "efrsb", "EfrsbClient", "search_active_by_inn", inn)
+        return [{
+            "entity_type": "BankruptcyCase",
+            "entity_value": c.case_number or inn,
+            "metadata": {"source": "bankrot.fedresurs.ru", "inn": inn, **to_dict(c)},
+            "confidence": 0.95,
+            "reliability": 0.9,
+        } for c in cases or []]
 
-        observations = []
-        try:
-            from atomno_mcp_fns_check.sources.efrsb import EfrsbClient
-        except ImportError:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: atomno-mcp-fns-check not installed.")
-
-        try:
-            async with EfrsbClient() as client:
-                cases = await client.search_active_by_inn(inn)
-                
-                for case in cases:
-                    observations.append({
-                        "entity_type": "Bankruptcy",
-                        "entity_value": inn,
-                        "metadata": {
-                            "source": "bankrot.fedresurs.ru",
-                            "status": case.status,
-                            "is_active": case.is_active,
-                            "debtor_name": case.debtor_name
-                        },
-                        "confidence": 0.95,
-                        "reliability": 0.90
-                    })
-        except Exception as e:
-            raise RuntimeError(f"REQUIRES_EXTERNAL_SERVICE: EFRSB fetch failed (API Error): {e}")
-
-        return observations
 
 registry.register(EfrsbAdapter)

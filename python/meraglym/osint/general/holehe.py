@@ -1,52 +1,63 @@
-import asyncio
-import os
-import subprocess
-import shutil
-import json
+import re
 from typing import Any, Dict, List
+
 from meraglym.osint import BaseAdapter, registry
+from meraglym.osint._util import dependency_error, find_executable, run_tool, service_error
+
+EMAIL_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+
 
 class HoleheAdapter(BaseAdapter):
-    """
-    Adapter for investigating email addresses globally using holehe.
-    """
+    """holehe: which of ~120 sites have an account registered to an email (no password-recovery probes)."""
     identifier = "holehe_recon"
     region = "GLOBAL"
-    version = "1.0.0"
+    version = "2.0.0"
 
     async def execute(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-        target_email = payload.get("value")
-        if not target_email or not isinstance(target_email, str):
-            raise ValueError("Holehe adapter requires a valid string 'value' in the payload.")
-            
-        has_holehe = shutil.which("holehe")
-        if not has_holehe:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: holehe executable not found in PATH.")
-            
-        observations = []
-        try:
-            env = os.environ.copy()
-            env["PYTHONIOENCODING"] = "utf-8"
-            
-            cmd = ["holehe", target_email, "--only-used", "--no-color"]
-            result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding="utf-8")
-            
-            for line in result.stdout.splitlines():
-                if "[+]" in line:
-                    site = line.replace("[+]", "").strip()
-                    observations.append({
-                        "entity_type": "Account",
-                        "entity_value": target_email,
-                        "metadata": {
-                            "source": "holehe",
-                            "site": site
-                        },
-                        "confidence": 0.90,
-                        "reliability": 0.85
-                    })
-        except Exception as e:
-            pass
-            
-        return observations
+        email = str(payload.get("value") or "").strip()
+        if not EMAIL_RE.match(email):
+            raise ValueError("INVALID_INPUT: holehe requires a valid email in 'value'.")
+        exe = find_executable("holehe", "HOLEHE_PATH")
+        if not exe:
+            raise dependency_error("holehe executable not found (pip install holehe or set HOLEHE_PATH).")
+        rc, out, err = await run_tool(
+            [exe, email, "--no-color", "--no-clear", "-NP", "-T", "15"], timeout=240
+        )
+        if "websites checked" not in out:
+            raise service_error(f"holehe did not complete (rc={rc}): {(err or out)[-300:]}")
+        used, rate_limited, not_used = [], [], 0
+        for line in out.splitlines():
+            line = line.strip()
+            if "Email used" in line:  # legend line
+                continue
+            if line.startswith("[+]"):
+                used.append(line[3:].strip())
+            elif line.startswith("[x]"):
+                rate_limited.append(line[3:].strip())
+            elif line.startswith("[-]"):
+                not_used += 1
+        m = re.search(r"(\d+) websites checked", out)
+        summary = {
+            "entity_type": "Email",
+            "entity_value": email,
+            "metadata": {
+                "source": "holehe",
+                "sites_checked": int(m.group(1)) if m else None,
+                "used_on": used,
+                "not_used_count": not_used,
+                "rate_limited": rate_limited,
+            },
+            "confidence": 0.85,
+            "reliability": 0.8,
+        }
+        accounts = [{
+            "entity_type": "Account",
+            "entity_value": f"{site}:{email}",
+            "metadata": {"source": "holehe", "site": site, "email": email},
+            "confidence": 0.85,
+            "reliability": 0.8,
+        } for site in used]
+        return [summary, *accounts]
+
 
 registry.register(HoleheAdapter)

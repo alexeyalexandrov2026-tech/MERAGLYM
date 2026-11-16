@@ -1,118 +1,99 @@
-import asyncio
-import os
-import subprocess
+import glob
 import json
+import os
+import re
+import tempfile
 from typing import Any, Dict, List
+from urllib.parse import urlparse
+
 from meraglym.osint import BaseAdapter, registry
+from meraglym.osint._util import dependency_error, find_executable, run_tool, service_error
+
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.\-]{1,63}$")  # no leading "-" (argv option injection)
+
 
 class SocialMediaAdapter(BaseAdapter):
-    """
-    Canonical Social Media Intelligence adapter.
-    Consolidates capabilities from Maigret, Social Analyzer, and EagleEye.
-    Handles username/profile reconnaissance across thousands of platforms.
+    """Username search across social networks: Maigret (primary) + Social Analyzer (secondary).
+
+    payload: {"value": "<username>", "top_sites": 500, "engines": ["maigret", "social-analyzer"]}
     """
     identifier = "social_recon"
     region = "GLOBAL"
-    version = "1.0.0"
+    version = "2.0.0"
 
     async def execute(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-        target_username = payload.get("value")
-        if not target_username or not isinstance(target_username, str):
-            raise ValueError("SocialMediaAdapter requires a valid string 'value' (username) in the payload.")
-            
-        observations = []
-        import shutil
-        has_maigret = shutil.which("maigret")
-        has_social_analyzer = shutil.which("social-analyzer")
-        
-        if not has_maigret and not has_social_analyzer:
-            raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: Maigret or Social Analyzer executables not found in PATH.")
-            
-        observations = []
-        if has_maigret:
-            try:
-                env = os.environ.copy()
-                env["PYTHONIOENCODING"] = "utf-8"
-                env["PYTHONUTF8"] = "1"
-                # Use maigret to check the username. 
-                # --timeout 3 limits the wait. -J simple produces a JSON report in reports/ dir
-                cmd = ["maigret", target_username, "--timeout", "3", "-J", "simple", "--no-extracting", "--no-color"]
-                result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding="utf-8")
-                
-                json_file = os.path.join(os.getcwd(), "reports", f"report_{target_username}_simple.json")
-                if os.path.exists(json_file):
-                    with open(json_file, 'r', encoding='utf-8') as f:
+        username = str(payload.get("value") or "").strip().lstrip("@")
+        if not USERNAME_RE.match(username):
+            raise ValueError("INVALID_INPUT: social_recon requires a username (letters, digits, _ . -).")
+        top = max(10, min(int(payload.get("top_sites", 500)), 3000))
+        engines = payload.get("engines") or ["maigret", "social-analyzer"]
+        maigret = find_executable("maigret", "MAIGRET_PATH")
+        sa = find_executable("social-analyzer", "SOCIAL_ANALYZER_PATH")
+        if not maigret and not sa:
+            raise dependency_error("neither maigret nor social-analyzer is installed.")
+        obs: List[Dict[str, Any]] = []
+        errors = []
+        attempted = 0
+        if maigret and "maigret" in engines:
+            attempted += 1
+            with tempfile.TemporaryDirectory(prefix="maigret-") as d:
+                rc, out, err = await run_tool(
+                    [maigret, username, "--top-sites", str(top), "--timeout", "10", "-J", "simple",
+                     "-fo", d, "--no-progressbar", "--no-color", "--no-recursion"],
+                    timeout=600, cwd=d,
+                )
+                files = glob.glob(os.path.join(d, "*.json"))
+                if files:
+                    with open(files[0], encoding="utf-8") as f:
                         data = json.load(f)
-                    
-                    # Normalizing
-                    for site_data in data.get(target_username, {}).values():
-                        if site_data.get("status") == "Claimed":
-                            observations.append({
-                                "entity_type": "Person", # Or Profile
-                                "entity_value": target_username,
-                                "metadata": {
-                                    "platform": site_data.get("name"),
-                                    "url": site_data.get("url_user"),
-                                    "source": "maigret"
-                                },
-                                "confidence": 0.90,
-                                "reliability": 0.85
-                            })
-                    # Clean up
-                    try:
-                        os.remove(json_file)
-                    except:
-                        pass
+                    for site, info in data.items():
+                        status = (info.get("status") or {}) if isinstance(info, dict) else {}
+                        if status.get("status") != "Claimed":
+                            continue
+                        obs.append({
+                            "entity_type": "Account",
+                            # one entity per platform (entities dedupe on type+value)
+                            "entity_value": f"{site}:{username}",
+                            "metadata": {
+                                "source": "maigret", "platform": site, "url": info.get("url_user"),
+                                "tags": status.get("tags"), "ids": status.get("ids") or {},
+                            },
+                            "confidence": 0.85,
+                            "reliability": 0.8,
+                        })
                 else:
-                    print(f"Maigret report not found. Stdout: {result.stdout}, Stderr: {result.stderr}")
-            except Exception as e:
-                print(f"Maigret exception: {e}")
-                
-        # Social Analyzer execution if missing maigret or if we want to augment.
-        # Resolve the script from SOCIAL_ANALYZER_PATH so this works
-        # cross-platform instead of a hardcoded location.
-        sa_script = os.environ.get("SOCIAL_ANALYZER_PATH")
-        has_sa_script = bool(sa_script and os.path.exists(sa_script))
-
-        if has_sa_script and not observations:
+                    errors.append(f"maigret rc={rc}: {(err or out)[-200:]}")
+        if sa and "social-analyzer" in engines:
+            attempted += 1
+            rc, out, err = await run_tool(
+                [sa, "--username", username, "--top", str(min(top, 300)), "--output", "json",
+                 "--method", "find", "--mode", "fast", "--filter", "good"],
+                timeout=600,
+            )
+            start = out.find("{")
             try:
-                env = os.environ.copy()
-                env["PYTHONIOENCODING"] = "utf-8"
-                # Set path so that modules load correctly
-                env["PYTHONPATH"] = os.path.dirname(sa_script)
-                
-                cmd = ["python", sa_script, "--username", target_username, "--output", "json", "--top", "50"]
-                result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding="utf-8")
-                
-                # social analyzer outputs JSON directly to stdout
-                try:
-                    # Sometimes it outputs some logs before JSON, find the first '{' or '['
-                    out = result.stdout
-                    json_start = out.find('{')
-                    if json_start != -1:
-                        data = json.loads(out[json_start:])
-                        # Format is {"detected": [{"name": "site", "url": "url", ...}]}
-                        detected = data.get("detected", [])
-                        for site in detected:
-                            observations.append({
-                                "entity_type": "Person",
-                                "entity_value": target_username,
-                                "metadata": {
-                                    "platform": site.get("name"),
-                                    "url": site.get("url"),
-                                    "source": "social-analyzer"
-                                },
-                                "confidence": 0.85,
-                                "reliability": 0.80
-                            })
-                except Exception as ex:
-                    pass
-            except Exception as e:
-                pass
-                
-        if not observations and not has_maigret and not has_sa_script:
-             raise RuntimeError("EXTERNAL_DEPENDENCY_UNAVAILABLE: Maigret and Social Analyzer failed or missing.")
-        
-        return observations
+                data = json.loads(out[start:]) if start >= 0 else {}
+                seen = {o["metadata"].get("url") for o in obs}
+                for site in data.get("detected", []):
+                    link = site.get("link") if isinstance(site, dict) else None
+                    if not isinstance(link, str) or not link or link in seen:
+                        continue
+                    obs.append({
+                        "entity_type": "Account",
+                        "entity_value": f"{urlparse(link).hostname or link}:{username}",
+                        "metadata": {"source": "social-analyzer", "url": link, "title": site.get("title"),
+                                     "country": site.get("country"), "rate": site.get("rate"),
+                                     "note": "social-analyzer detections are heuristic; verify manually"},
+                        "confidence": 0.5,
+                        "reliability": 0.7,
+                    })
+            except ValueError:
+                errors.append(f"social-analyzer rc={rc}: {(err or out)[-200:]}")
+        if not attempted:
+            raise dependency_error(f"none of the requested engines {engines} is installed.")
+        if errors and not obs and len(errors) == attempted:
+            raise service_error("; ".join(errors))
+        return obs
+
 
 registry.register(SocialMediaAdapter)
