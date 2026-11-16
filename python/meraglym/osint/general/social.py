@@ -75,8 +75,8 @@ class SocialMediaAdapter(BaseAdapter):
                 data = json.loads(out[start:]) if start >= 0 else {}
                 seen = {o["metadata"].get("url") for o in obs}
                 for site in data.get("detected", []):
-                    link = site.get("link")
-                    if link in seen:
+                    link = site.get("link") if isinstance(site, dict) else None
+                    if not isinstance(link, str) or not link or link in seen:
                         continue
                     obs.append({
                         "entity_type": "Account",
