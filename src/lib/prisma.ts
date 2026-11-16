@@ -68,14 +68,34 @@ async function createClient(): Promise<PrismaClient> {
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { PrismaClient: PgPrismaClient } = await import("@prisma/client");
 
-  const { connectionString, schema } = parsePostgresUrl(
-    `${process.env.DATABASE_URL ?? ""}`,
-  );
+  const parsed = parsePostgresUrl(`${process.env.DATABASE_URL ?? ""}`);
+  const schema = parsed.schema;
+  // On Cloudflare Workers, connect through the Hyperdrive binding when present:
+  // Workers cannot verify Supabase's private TLS certificate on a direct socket,
+  // and Hyperdrive also pools connections close to the database.
+  const connectionString =
+    (await getHyperdriveConnectionString()) ?? parsed.connectionString;
   const pool = new Pool({ connectionString });
   // Prisma's driver adapters qualify every table with a schema name and default
   // to "public"; the role's search_path is ignored. Pass the schema explicitly.
   const adapter = new PrismaPg(pool, schema ? { schema } : undefined);
   return new PgPrismaClient({ adapter });
+}
+
+/** The `HYPERDRIVE` binding's connection string on Cloudflare Workers, if any. */
+async function getHyperdriveConnectionString(): Promise<string | undefined> {
+  if (process.env.MERAGLYM_TARGET === "desktop" || !isCloudflareWorker) {
+    return undefined;
+  }
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const env = getCloudflareContext().env as unknown as {
+      HYPERDRIVE?: { connectionString?: string };
+    };
+    return env.HYPERDRIVE?.connectionString || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
