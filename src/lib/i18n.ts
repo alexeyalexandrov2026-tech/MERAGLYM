@@ -51,7 +51,19 @@ export const dictionaries = {
       created: "CREATED:",
       started: "STARTED:",
       completed: "COMPLETED:",
-      id: "ID:"
+      id: "ID:",
+      newJob: "NEW OSINT JOB //",
+      adapter: "Adapter",
+      target: "Target",
+      token: "Admin token",
+      submit: "RUN",
+      submitting: "QUEUING...",
+      queued: "Queued job",
+      requires: "Needs:",
+      results: "RESULTS:",
+      show: "SHOW RESULTS",
+      hide: "HIDE",
+      redacted: "[details hidden — enter the admin token to see targets and results]"
     },
     common: {
       language: "Language"
@@ -102,7 +114,19 @@ export const dictionaries = {
       created: "СОЗДАНА:",
       started: "НАЧАТА:",
       completed: "ЗАВЕРШЕНА:",
-      id: "ID:"
+      id: "ID:",
+      newJob: "НОВАЯ OSINT-ЗАДАЧА //",
+      adapter: "Адаптер",
+      target: "Цель",
+      token: "Токен администратора",
+      submit: "ЗАПУСТИТЬ",
+      submitting: "СТАВЛЮ В ОЧЕРЕДЬ...",
+      queued: "Задача поставлена",
+      requires: "Нужно:",
+      results: "РЕЗУЛЬТАТОВ:",
+      show: "ПОКАЗАТЬ РЕЗУЛЬТАТЫ",
+      hide: "СКРЫТЬ",
+      redacted: "[детали скрыты — введите токен администратора, чтобы видеть цели и результаты]"
     },
     common: {
       language: "Язык"
