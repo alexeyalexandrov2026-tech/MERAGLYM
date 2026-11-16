@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from meraglym.osint import BaseAdapter, registry
 from meraglym.osint._util import dependency_error, find_executable, run_tool, service_error
 
-USERNAME_RE = re.compile(r"^[A-Za-z0-9_.\-]{2,64}$")
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.\-]{1,63}$")  # no leading "-" (argv option injection)
 
 
 class SocialMediaAdapter(BaseAdapter):

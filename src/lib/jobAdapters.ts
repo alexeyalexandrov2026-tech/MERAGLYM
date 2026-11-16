@@ -51,17 +51,18 @@ export const JOB_ADAPTERS: readonly JobAdapter[] = [
   { id: "stix_ingest", label: "STIX 2.1 — импорт объектов", region: "GLOBAL", input: "stix", placeholder: '[{"type":"threat-actor","id":"threat-actor--1","name":"APT28"}]' },
 ] as const;
 
+// Values are passed as argv to CLI tools on the worker, so none may start with "-".
 const VALIDATORS: Record<Exclude<AdapterInput, "stix">, RegExp> = {
   inn: /^(\d{10}|\d{12})$/,
-  email: /^[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/,
-  username: /^@?[A-Za-z0-9_.-]{2,64}$/,
+  email: /^[A-Za-z0-9_][A-Za-z0-9_.+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/,
+  username: /^@?[A-Za-z0-9_][A-Za-z0-9_.-]{1,63}$/,
   name: /^[\p{L}\p{N} .,'"«»()-]{2,200}$/u,
-  bssid: /^(([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}|[\w .-]{1,32})$/,
+  bssid: /^(([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}|\w[\w .-]{0,31})$/,
   url: /^https?:\/\/[^\s]{3,2000}$/,
   wallet: /^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34}|0x[0-9a-fA-F]{40})$/,
   ip: /^[0-9a-fA-F:.]{2,45}(\/\d{1,3})?$/,
   onion: /^(https?:\/\/)?[a-z2-7]{56}\.onion(\/[^\s]*)?$/,
-  domain: /^[A-Za-z0-9@._:-]{1,253}$/,
+  domain: /^[A-Za-z0-9][A-Za-z0-9@._:-]{0,252}$/,
   indicator: /^[^\s]{1,500}$/,
 };
 

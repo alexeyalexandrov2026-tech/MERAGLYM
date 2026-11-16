@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from meraglym.osint import BaseAdapter, registry
 from meraglym.osint._util import dependency_error, run_tool, script_python, service_error
 
-SAFE_TARGET = re.compile(r"^[A-Za-z0-9@._:\-/ \"]{1,253}$")
+SAFE_TARGET = re.compile(r"^[A-Za-z0-9\"][A-Za-z0-9@._:\-/ \"]{0,252}$")
 DEFAULT_MODULES = "sfp_dnsresolve,sfp_whois,sfp_sslcert"
 
 

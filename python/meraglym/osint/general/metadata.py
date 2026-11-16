@@ -3,7 +3,7 @@ import tempfile
 from typing import Any, Dict, List
 
 from meraglym.osint import BaseAdapter, registry
-from meraglym.osint._util import dependency_error, service_error
+from meraglym.osint._util import assert_public_url, dependency_error, service_error
 
 MAX_BYTES = 25 * 1024 * 1024
 SKIP_TAGS = ("JPEGThumbnail", "TIFFThumbnail", "Filename", "EXIF MakerNote")
@@ -32,9 +32,23 @@ class MetadataAdapter(BaseAdapter):
             if value.startswith(("http://", "https://")):
                 import httpx
                 try:
-                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True,
+                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=False,
                                                  headers={"User-Agent": "MERAGLYM-metadata/2.0"}) as client:
-                        async with client.stream("GET", value) as r:
+                        url = value
+                        for _ in range(6):
+                            # SSRF guard: never fetch loopback/private/link-local (e.g. Azure IMDS,
+                            # Sport AI on localhost); re-checked on every redirect hop.
+                            assert_public_url(url)
+                            head = await client.send(client.build_request("GET", url), stream=True)
+                            if head.is_redirect and head.headers.get("location"):
+                                await head.aclose()
+                                url = str(head.url.join(head.headers["location"]))
+                                continue
+                            break
+                        else:
+                            raise ValueError("INVALID_INPUT: too many redirects.")
+                        r = head
+                        try:
                             r.raise_for_status()
                             fd, tmp = tempfile.mkstemp(prefix="meta-")
                             size = 0
@@ -45,6 +59,8 @@ class MetadataAdapter(BaseAdapter):
                                         raise ValueError("INVALID_INPUT: file larger than 25 MB.")
                                     f.write(chunk)
                             content_type = r.headers.get("content-type")
+                        finally:
+                            await r.aclose()
                 except ValueError:
                     raise
                 except Exception as e:

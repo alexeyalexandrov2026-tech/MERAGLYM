@@ -141,3 +141,24 @@ def test_ru_geo_block_without_proxy_is_permanent(monkeypatch):
     monkeypatch.setenv("RU_PROXY_URL", "socks5://127.0.0.1:1")
     err = ru_service_error("kad.arbitr.ru", Exception("timeout"))
     assert str(err).startswith("REQUIRES_EXTERNAL_SERVICE") and not worker._is_permanent(err)
+
+
+def test_assert_public_url_blocks_internal_hosts():
+    import pytest
+    from meraglym.osint._util import assert_public_url
+
+    for url in ("http://127.0.0.1:8787/", "http://169.254.169.254/metadata", "http://10.0.0.4/", "file:///etc/passwd", "http://localhost/"):
+        with pytest.raises(ValueError):
+            assert_public_url(url)
+
+
+def test_argv_option_injection_rejected():
+    import asyncio
+    import pytest
+    from meraglym.osint.general.social import SocialMediaAdapter
+    from meraglym.osint.general.holehe import HoleheAdapter
+
+    with pytest.raises(ValueError):
+        asyncio.run(SocialMediaAdapter().execute({"value": "--db"}))
+    with pytest.raises(ValueError):
+        asyncio.run(HoleheAdapter().execute({"value": "-x@example.com"}))

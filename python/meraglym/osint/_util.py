@@ -141,3 +141,27 @@ def require_inn(payload: dict) -> str:
     if not isinstance(v, str) or not v.strip().isdigit() or len(v.strip()) not in (10, 12):
         raise ValueError("INVALID_INPUT: 'value' (inn) must be a 10- or 12-digit INN.")
     return v.strip()
+
+
+def assert_public_url(url: str) -> None:
+    """Reject URLs whose host resolves to a non-public address (SSRF guard).
+
+    Set METADATA_ALLOW_PRIVATE=1 to disable (e.g. for a lab network).
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+
+    if os.environ.get("METADATA_ALLOW_PRIVATE") == "1":
+        return
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("INVALID_INPUT: only http(s) URLs are allowed.")
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except socket.gaierror as e:
+        raise ValueError(f"INVALID_INPUT: cannot resolve {parts.hostname}: {e}")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if not ip.is_global:
+            raise ValueError(f"INVALID_INPUT: {parts.hostname} resolves to a non-public address; refused.")

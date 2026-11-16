@@ -23,7 +23,7 @@ class GeospatialAdapter(BaseAdapter):
         search_by = "bssid" if BSSID_RE.match(value) else "ssid"
         if search_by == "bssid":
             value = value.replace("-", ":").upper()
-        elif not re.match(r"^[\w .\-]{1,32}$", value):
+        elif not re.match(r"^\w[\w .\-]{0,31}$", value):
             raise ValueError("INVALID_INPUT: SSID contains unsupported characters.")
         script = os.environ.get("GEOWIFI_PATH")
         if not script or not os.path.exists(script):

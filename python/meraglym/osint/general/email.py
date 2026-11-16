@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from meraglym.osint import BaseAdapter, registry
 from meraglym.osint._util import credential_error, dependency_error, find_executable, run_tool, service_error
 
-EMAIL_RE = re.compile(r"^[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+EMAIL_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
 
 def ghunt_creds_path() -> str:
