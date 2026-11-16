@@ -185,3 +185,24 @@ def test_run_tool_killed_on_outer_cancel():
     asyncio.run(main())
     time.sleep(2)
     assert not os.path.exists(marker)
+
+
+def test_stix_maps_common_types_and_relationships():
+    import asyncio
+    from meraglym.osint.general.stix import StixAdapter
+
+    objs = [
+        {"type": "intrusion-set", "id": "intrusion-set--1", "name": "APT28", "aliases": ["Fancy Bear"]},
+        {"type": "malware", "id": "malware--1", "name": "X-Agent"},
+        {"type": "indicator", "id": "indicator--1", "pattern": "[ipv4-addr:value = '1.2.3.4']"},
+        {"type": "ipv4-addr", "id": "ipv4-addr--1", "value": "1.2.3.4"},
+        {"type": "campaign", "id": "campaign--1"},
+        {"type": "relationship", "source_ref": "intrusion-set--1", "target_ref": "malware--1", "relationship_type": "uses"},
+    ]
+    obs = asyncio.run(StixAdapter().execute({"objects": objs}))
+    kinds = {(o["entity_type"], o["entity_value"]) for o in obs}
+    assert ("ThreatActor", "APT28") in kinds and ("Malware", "X-Agent") in kinds and ("IPAddress", "1.2.3.4") in kinds
+    assert any(o["entity_type"] == "Indicator" for o in obs)
+    assert not any(o["entity_value"] is None for o in obs)
+    apt = next(o for o in obs if o["entity_value"] == "APT28")
+    assert apt["metadata"]["relationships"][0] == {"type": "uses", "target_type": "Malware", "target": "X-Agent"}
