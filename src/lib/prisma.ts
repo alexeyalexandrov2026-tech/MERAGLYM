@@ -68,10 +68,40 @@ async function createClient(): Promise<PrismaClient> {
   const { PrismaPg } = await import("@prisma/adapter-pg");
   const { PrismaClient: PgPrismaClient } = await import("@prisma/client");
 
-  const connectionString = `${process.env.DATABASE_URL ?? ""}`;
+  const { connectionString, schema } = parsePostgresUrl(
+    `${process.env.DATABASE_URL ?? ""}`,
+  );
   const pool = new Pool({ connectionString });
-  const adapter = new PrismaPg(pool);
+  // Prisma's driver adapters qualify every table with a schema name and default
+  // to "public"; the role's search_path is ignored. Pass the schema explicitly.
+  const adapter = new PrismaPg(pool, schema ? { schema } : undefined);
   return new PgPrismaClient({ adapter });
+}
+
+/**
+ * Split Prisma's `?schema=<name>` parameter off a PostgreSQL URL. `pg` does not
+ * understand it, and driver adapters only honour a schema passed in code, so it
+ * is handed to PrismaPg separately. `DATABASE_SCHEMA` overrides the URL value.
+ * Without either, queries target "public" exactly as before.
+ */
+export function parsePostgresUrl(raw: string): {
+  connectionString: string;
+  schema?: string;
+} {
+  let connectionString = raw;
+  let schema: string | undefined;
+  try {
+    const url = new URL(raw);
+    schema = url.searchParams.get("schema") ?? undefined;
+    if (schema !== undefined) {
+      url.searchParams.delete("schema");
+      connectionString = url.toString();
+    }
+  } catch {
+    // Not a URL (e.g. empty in builds): pass it through unchanged.
+  }
+  schema = process.env.DATABASE_SCHEMA || schema;
+  return { connectionString, schema: schema || undefined };
 }
 
 // Cache a single client per process (and survive Next.js dev hot-reload).
